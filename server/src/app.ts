@@ -51,14 +51,17 @@ const corsOptions: cors.CorsOptions = {
 
 app.use(cors(corsOptions));
 
-
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req: Request) =>
+    req.method === 'GET' &&
+    (req.path === '/status' || req.path === '/admin/settings'),
   message: { error: 'יותר מדי בקשות נשלחו מכתובת זו. אנא נסה שוב בעוד מספר דקות.' },
 });
+
 
 app.use('/api', apiLimiter);
 
