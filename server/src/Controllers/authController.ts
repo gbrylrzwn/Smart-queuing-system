@@ -347,4 +347,105 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
   } catch (error) {
     next(error);
   }
+  
+};
+const passwordResetStore = new Map<string, { code: string; userId: number; attempts: number; expiresAt: number }>();
+
+export const requestPasswordReset = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const identifier = String(req.body.identifier || '').trim();
+    if (!identifier) {
+      res.status(400).json({ error: 'יש להזין מספר טלפון נייד או כתובת אימייל.' });
+      return;
+    }
+
+    const digits = normalizePhone(identifier);
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: identifier },
+          ...(digits.length >= 9 ? [{ phone: digits }] : []),
+          { email: identifier.toLowerCase() },
+        ],
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'לא נמצא חשבון התואם לפרטים שהוזנו במערכת.' });
+      return;
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const storeKey = String(user.id);
+    passwordResetStore.set(storeKey, {
+      code,
+      userId: user.id,
+      attempts: 0,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+
+    await NotificationService.sendExternalMessage(
+      user.phone,
+      `קוד אימות לאיפוס סיסמה ב-SmartQueue: ${code} (תקף ל-10 דקות)`
+    );
+
+    const isSmsConfigured = Boolean(process.env.SMS_WEBHOOK_URL || process.env.CALLMEBOT_APIKEY);
+    const maskedPhone = user.phone.length >= 4 ? `***-***-${user.phone.slice(-4)}` : user.phone;
+
+    res.status(200).json({
+      resetTokenKey: storeKey,
+      message: isSmsConfigured
+        ? `קוד אימות בן 6 ספרות נשלח למספר הטלפון הרשום (${maskedPhone}).`
+        : `מצב בדיקה (${maskedPhone}): קוד האיפוס שלך הוא ${code}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+export const confirmPasswordReset = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const resetTokenKey = String(req.body.resetTokenKey || '').trim();
+    const inputCode = String(req.body.code || '').trim();
+    const newPassword = String(req.body.newPassword || '');
+
+    if (!resetTokenKey || !inputCode || !newPassword) {
+      res.status(400).json({ error: 'יש למלא את קוד האימות ואת הסיסמה החדשה.' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: 'הסיסמה החדשה חייבת להכיל לפחות 6 תווים.' });
+      return;
+    }
+
+    const record = passwordResetStore.get(resetTokenKey);
+    if (!record || Date.now() > record.expiresAt) {
+      passwordResetStore.delete(resetTokenKey);
+      res.status(400).json({ error: 'קוד האימות פג תוקף או לא נמצא. אנא בקש קוד חדש.' });
+      return;
+    }
+
+    if (record.attempts >= 5) {
+      passwordResetStore.delete(resetTokenKey);
+      res.status(429).json({ error: 'חרגת ממספר הניסיונות המותר. אנא בקש קוד איפוס חדש.' });
+      return;
+    }
+
+    if (record.code !== inputCode) {
+      record.attempts += 1;
+      res.status(400).json({ error: `קוד האימות שגוי (ניסיון ${record.attempts} מתוך 5).` });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: record.userId },
+      data: { password: hashedPassword },
+    });
+
+    passwordResetStore.delete(resetTokenKey);
+    res.status(200).json({ message: 'הסיסמה עודכנה בהצלחה! כעת ניתן להתחבר עם הסיסמה החדשה.' });
+  } catch (error) {
+    next(error);
+  }
 };

@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axiosClient from '../../api/axiosClient';
 import { registerBiometricPasskey } from '../../utils/passkeyHelper';
+import { SmartQueueLogo } from '../common/SmartQueueLogo';
 
 const Navbar: React.FC = () => {
     const { user, logout } = useAuth();
@@ -23,7 +24,6 @@ const Navbar: React.FC = () => {
     const unreadCount = notifications.filter(n => !n.isRead).length;
     const isFirstLoadRef = useRef<boolean>(true);
     const prevCountRef = useRef<number>(0);
-
     useEffect(() => {
         if (user?.role !== 'CLIENT') return;
 
@@ -70,7 +70,6 @@ const Navbar: React.FC = () => {
         const intervalId = setInterval(fetchNotifications, 15000);
         return () => clearInterval(intervalId);
     }, [user]);
-
     const handleToggleNotifications = async () => {
         const nextState = !isNotifOpen;
         setIsNotifOpen(nextState);
@@ -133,7 +132,6 @@ const Navbar: React.FC = () => {
             setLoadingAction(false);
         }
     };
-
     return (
         <>
             <nav className="bg-white shadow-sm border-b border-gray-100 relative z-40" dir="rtl">
@@ -142,9 +140,9 @@ const Navbar: React.FC = () => {
                         <div className="flex items-center gap-2">
                             <Link
                                 to={user?.role === 'SUPER_ADMIN' ? '/admin' : '/'}
-                                className="text-xl font-black text-blue-600 tracking-tight"
+                                className="flex items-center hover:opacity-95 transition-opacity"
                             >
-                                SmartQueue 💈
+                                <SmartQueueLogo size="sm" />
                             </Link>
                         </div>
 
@@ -160,9 +158,12 @@ const Navbar: React.FC = () => {
                                     {user.role === 'SUPER_ADMIN' && (
                                         <Link
                                             to="/admin"
-                                            className="text-indigo-700 hover:bg-indigo-100/70 px-3 py-1.5 rounded-xl bg-indigo-50 transition-all font-black"
+                                            className="inline-flex items-center gap-1.5 text-indigo-700 hover:bg-indigo-100/70 px-3 py-1.5 rounded-xl bg-indigo-50 transition-all font-black"
                                         >
-                                            👑 ניהול מערכת (Admin)
+                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                            </svg>
+                                            <span>ניהול מערכת (Admin)</span>
                                         </Link>
                                     )}
 
@@ -174,7 +175,6 @@ const Navbar: React.FC = () => {
                                             לוח בקרה (מנהל)
                                         </Link>
                                     )}
-
                                     {user.role !== 'SUPER_ADMIN' && (
                                         <div className="relative">
                                             <button
@@ -183,21 +183,20 @@ const Navbar: React.FC = () => {
                                                 className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 hover:bg-gray-50 active:scale-[0.95] transition-all bg-white shadow-sm cursor-pointer"
                                                 title="התראות ותזכורות"
                                             >
-                                                <span className="text-lg">🔔</span>
+                                                <svg className="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                                </svg>
                                                 {unreadCount > 0 && (
-                                                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-xs">
+                                                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow">
                                                         {unreadCount}
                                                     </span>
                                                 )}
                                             </button>
 
                                             {isNotifOpen && (
-                                                <div
-                                                    className="absolute left-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden text-right"
-                                                    dir="rtl"
-                                                >
+                                                <div className="absolute left-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
                                                     <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                                                        <span className="text-xs font-black text-gray-800">🔔 התראות ותזכורות</span>
+                                                        <span className="text-xs font-black text-gray-800">התראות ותזכורות</span>
                                                         <button
                                                             type="button"
                                                             onClick={() => setIsNotifOpen(false)}
@@ -275,12 +274,12 @@ const Navbar: React.FC = () => {
                         <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
                             <div className="flex items-center gap-3">
                                 <div
-                                    className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-black shadow-md ${user?.role === 'SUPER_ADMIN'
+                                    className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xs font-black shadow-md ${user?.role === 'SUPER_ADMIN'
                                         ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 shadow-indigo-500/20'
                                         : 'bg-gradient-to-tr from-blue-500 to-indigo-600 shadow-blue-500/20'
                                         }`}
                                 >
-                                    {user?.role === 'SUPER_ADMIN' ? '👑' : user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                    {user?.role === 'SUPER_ADMIN' ? 'ADMIN' : user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-400 font-bold">
@@ -301,7 +300,6 @@ const Navbar: React.FC = () => {
                                 ✕
                             </button>
                         </div>
-
                         {deleteStep === 'NONE' && (
                             <div className="flex flex-col gap-1.5 animate-fade-in">
                                 {user?.role === 'CLIENT' && (
@@ -313,7 +311,10 @@ const Navbar: React.FC = () => {
                                             }}
                                             className="w-full text-right px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
                                         >
-                                            <span className="text-base group-hover:scale-110 transition-transform">📅</span>
+                                            <svg className="w-4 h-4 text-blue-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <rect x="3" y="4" width="18" height="18" rx="2" />
+                                                <path d="M16 2v4M8 2v4M3 10h18" />
+                                            </svg>
                                             <span>התורים שלי</span>
                                         </button>
 
@@ -324,9 +325,12 @@ const Navbar: React.FC = () => {
                                             }}
                                             className="w-full text-right px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
                                         >
-                                            <span className="text-base group-hover:scale-110 transition-transform">❤️</span>
+                                            <svg className="w-4 h-4 text-rose-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                            </svg>
                                             <span>העסקים המועדפים שלי</span>
                                         </button>
+
                                         <div className="flex flex-col gap-1">
                                             <button
                                                 type="button"
@@ -334,7 +338,12 @@ const Navbar: React.FC = () => {
                                                 className="w-full text-right px-4 py-3 text-sm font-bold text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100/70 rounded-xl transition-all flex items-center justify-between group cursor-pointer"
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-base group-hover:scale-110 transition-transform">📲</span>
+                                                    <svg className="w-4 h-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <circle cx="18" cy="5" r="3" />
+                                                        <circle cx="6" cy="12" r="3" />
+                                                        <circle cx="18" cy="19" r="3" />
+                                                        <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
+                                                    </svg>
                                                     <span>שיתוף עם חבר</span>
                                                 </div>
                                                 <span className="text-xs">{isShareOpen ? '▲' : '▼'}</span>
@@ -353,7 +362,6 @@ const Navbar: React.FC = () => {
                                                         }}
                                                         className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-white hover:bg-emerald-50 text-emerald-700 rounded-lg border border-gray-200 text-xs font-bold transition-all cursor-pointer"
                                                     >
-                                                        <span className="text-base">💬</span>
                                                         <span>WhatsApp</span>
                                                     </button>
 
@@ -368,7 +376,6 @@ const Navbar: React.FC = () => {
                                                         }}
                                                         className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-white hover:bg-blue-50 text-blue-700 rounded-lg border border-gray-200 text-xs font-bold transition-all cursor-pointer"
                                                     >
-                                                        <span className="text-base">✉️</span>
                                                         <span>אימייל</span>
                                                     </button>
 
@@ -382,16 +389,13 @@ const Navbar: React.FC = () => {
                                                         }}
                                                         className="flex flex-col items-center justify-center gap-1 py-2 px-1 bg-white hover:bg-purple-50 text-purple-700 rounded-lg border border-gray-200 text-xs font-bold transition-all cursor-pointer"
                                                     >
-                                                        <span className="text-base">📱</span>
                                                         <span>SMS</span>
                                                     </button>
                                                 </div>
                                             )}
                                         </div>
-
                                     </>
                                 )}
-
                                 {user?.role === 'BUSINESS_OWNER' && (
                                     <button
                                         onClick={() => {
@@ -400,10 +404,45 @@ const Navbar: React.FC = () => {
                                         }}
                                         className="w-full text-right px-4 py-3 text-sm font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
                                     >
-                                        <span className="text-base group-hover:scale-110 transition-transform">📊</span>
+                                        <svg className="w-4 h-4 text-blue-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <rect x="3" y="3" width="7" height="7" rx="1" />
+                                            <rect x="14" y="3" width="7" height="7" rx="1" />
+                                            <rect x="14" y="14" width="7" height="7" rx="1" />
+                                            <rect x="3" y="14" width="7" height="7" rx="1" />
+                                        </svg>
                                         <span>לוח בקרה וניהול יומן</span>
                                     </button>
                                 )}
+                                {user?.role === 'BUSINESS_OWNER' && (
+                                    <button
+                                        onClick={() => {
+                                            setIsDrawerOpen(false);
+                                            navigate('/business-invoices');
+                                        }}
+                                        className="w-full text-right px-4 py-3 text-sm font-bold text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100/70 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
+                                    >
+                                        <svg className="w-4 h-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <span>הפקת חשבוניות וקבלות</span>
+                                    </button>
+                                )}
+
+                                {user?.role === 'BUSINESS_OWNER' && (
+                                    <button
+                                        onClick={() => {
+                                            setIsDrawerOpen(false);
+                                            navigate('/business-invoices');
+                                        }}
+                                        className="w-full text-right px-4 py-3 text-sm font-bold text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100/70 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
+                                    >
+                                        <svg className="w-4 h-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <span>הפקת חשבוניות וקבלות</span>
+                                    </button>
+                                )}
+
 
                                 {user?.role === 'SUPER_ADMIN' && (
                                     <button
@@ -413,12 +452,12 @@ const Navbar: React.FC = () => {
                                         }}
                                         className="w-full text-right px-4 py-3 text-sm font-black text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100/80 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
                                     >
-                                        <span className="text-base group-hover:scale-110 transition-transform">👑</span>
+                                        <svg className="w-4 h-4 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                        </svg>
                                         <span>מרכז שליטה ראשי</span>
                                     </button>
-
                                 )}
-
 
                                 {user?.role === 'BUSINESS_OWNER' && (
                                     <button
@@ -436,10 +475,14 @@ const Navbar: React.FC = () => {
                                         }}
                                         className="w-full text-right px-4 py-3 text-sm font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
                                     >
-                                        <span className="text-base group-hover:scale-110 transition-transform">📅</span>
+                                        <svg className="w-4 h-4 text-blue-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" />
+                                            <path d="M16 2v4M8 2v4M3 10h18" />
+                                        </svg>
                                         <span>סנכרון ליומן Google</span>
                                     </button>
                                 )}
+
                                 <button
                                     type="button"
                                     onClick={async () => {
@@ -455,13 +498,11 @@ const Navbar: React.FC = () => {
                                     }}
                                     className="w-full text-right px-4 py-3 text-sm font-bold text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/70 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
                                 >
-                                    <span className="text-base group-hover:scale-110 transition-transform">👆</span>
+                                    <svg className="w-4 h-4 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+                                    </svg>
                                     <span>הפעל טביעת אצבע / זיהוי פנים</span>
                                 </button>
-
-
-
-
                             </div>
                         )}
                         {deleteStep === 'BUSINESS_CONFIRM' && (
@@ -497,7 +538,7 @@ const Navbar: React.FC = () => {
                                     disabled={isSendingSms}
                                     className="w-full bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-sm"
                                 >
-                                    {isSendingSms ? 'שולח קוד באסמס...' : '💬 שלח קוד אימות ל-SMS'}
+                                    {isSendingSms ? 'שולח קוד באסמס...' : 'שלח קוד אימות ל-SMS'}
                                 </button>
                                 <button onClick={() => setDeleteStep('NONE')} className="w-full mt-3 text-xs text-gray-400 hover:underline">
                                     ביטול וחזרה
@@ -507,7 +548,7 @@ const Navbar: React.FC = () => {
 
                         {deleteStep === 'SMS_SENT' && (
                             <div className="p-2 text-center animate-fade-in">
-                                <p className="text-xs font-bold text-green-600 mb-1">💬 קוד האימות נשלח בהצלחה!</p>
+                                <p className="text-xs font-bold text-green-600 mb-1">קוד האימות נשלח בהצלחה!</p>
                                 <p className="text-[10px] text-gray-400 mb-4">
                                     (לצורך בדיקה הזן: <span className="font-bold">1234</span>)
                                 </p>
@@ -552,7 +593,10 @@ const Navbar: React.FC = () => {
                                 }}
                                 className="w-full text-right px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
                             >
-                                <span className="text-base group-hover:scale-110 transition-transform">⚙️</span>
+                                <svg className="w-4 h-4 text-slate-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="3" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+                                </svg>
                                 <span>הגדרות</span>
                             </button>
 
@@ -560,7 +604,9 @@ const Navbar: React.FC = () => {
                                 onClick={handleLogout}
                                 className="w-full text-right px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
                             >
-                                <span className="text-base group-hover:scale-110 transition-transform">🚪</span>
+                                <svg className="w-4 h-4 text-red-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
                                 <span>התנתק מהמערכת</span>
                             </button>
                         </div>

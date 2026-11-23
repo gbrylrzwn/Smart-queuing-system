@@ -21,6 +21,10 @@ import HealthDeclarationPage from '../pages/HealthDeclarationPage';
 
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 
+import BusinessInvoices from '../pages/BusinessInvoices';
+import PrivacyPolicy from '../pages/PrivacyPolicy';
+import SystemGuide from '../pages/SystemGuide';
+
 const MaintenanceBanner: React.FC = () => (
   <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center" dir="rtl">
     <div className="max-w-md bg-slate-800/90 border border-slate-700 p-8 rounded-3xl shadow-2xl space-y-4">
@@ -107,6 +111,10 @@ const AppRouter: React.FC = () => {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/about" element={<SystemGuide />} />
+
+
         <Route path="/confirm-appointment/:token" element={<QuickConfirmAppointment />} />
 
         <Route element={<ProtectedRoute allowedRoles={['CLIENT', 'BUSINESS_OWNER', 'SUPER_ADMIN']} />}>
@@ -121,6 +129,8 @@ const AppRouter: React.FC = () => {
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['BUSINESS_OWNER']} />}>
+        <Route path="/business-invoices" element={<BusinessInvoices />} />
+
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/create-business" element={<CreateBusiness />} />
           <Route path="/business-home" element={<BusinessHome />} />

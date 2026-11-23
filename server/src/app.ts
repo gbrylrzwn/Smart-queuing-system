@@ -19,6 +19,8 @@ import bcrypt from 'bcrypt';
 import prisma from './Config/db';
 import crmRoutes from './Routes/crmRoutes';
 import passkeyRoutes from './Routes/passkeyRoutes';
+import aiRoutes from './Routes/aiRoutes';
+import invoiceRoutes from './Routes/invoiceRoutes';
 
 dotenv.config();
 
@@ -99,6 +101,9 @@ app.use('/api/google-calendar', googleCalendarRoutes);
 app.use('/api/crm', crmRoutes);
 app.use('/api/smart-bi', smartBiRoutes);
 app.use('/api/passkey', passkeyRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/invoices', invoiceRoutes);
+
 
 app.use(errorHandler);
 

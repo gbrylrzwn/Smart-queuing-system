@@ -87,6 +87,8 @@ model Business {
   maxNoShowsAllowed    Int               @default(2)
   flashDiscountPercent Int               @default(0)
   reviews              Review[]
+    invoices             Invoice[]
+
 }
 
 model Staff {
@@ -292,4 +294,23 @@ model Review {
   appointmentId Int         @unique
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   createdAt     DateTime    @default(now())
+}
+// טבלת חשבוניות וקבלות דיגיטליות לבעלי עסקים (מופרדת ומאובטחת לכל עסק)
+model Invoice {
+  id            Int      @id @default(autoincrement())
+  invoiceNumber String
+  businessId    Int
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointmentId Int?
+  clientName    String
+  clientPhone   String?
+  clientEmail   String?
+  clientTaxId   String?
+  serviceName   String
+  amount        Float
+  paymentMethod String   @default("אשראי / העברה")
+  notes         String?
+  issuedAt      DateTime @default(now())
+
+  @@unique([businessId, invoiceNumber])
 }

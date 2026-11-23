@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { Business, BusinessCategory } from '../types';
@@ -18,6 +18,9 @@ const Home: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
 
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const recognitionRef = useRef<any>(null);
+
   const [activeSearchTerm, setActiveSearchTerm] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
 
@@ -28,7 +31,51 @@ const Home: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [filterByLocation, setFilterByLocation] = useState<boolean>(false);
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
+  const handleVoiceSearch = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
+    if (!SpeechRecognition) {
+      alert('הדפדפן שלך אינו תומך בחיפוש קולי. מומלץ להשתמש ב-Chrome או Safari עדכני.');
+      return;
+    }
+
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'he-IL';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const spokenText = String(event.results?.[0]?.[0]?.transcript || '').trim();
+      if (spokenText) {
+        setSearchTerm(spokenText);
+        setActiveSearchTerm(spokenText);
+        setActiveCategory(selectedCategory);
+        setShowSuggestions(false);
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
   const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -70,17 +117,17 @@ const Home: React.FC = () => {
       }
     );
   };
-
   const getCategoryTheme = (cat: BusinessCategory) => {
-    const themes: Record<BusinessCategory, { text: string; bg: string; icon: string }> = {
-      HAIR_SALON: { text: 'מספרה', bg: 'bg-amber-50 text-amber-700 border-amber-200', icon: '💇‍♂️' },
-      CLINIC: { text: 'קליניקה', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: '🩺' },
-      BEAUTY_SALON: { text: 'מכון יופי', bg: 'bg-pink-50 text-pink-700 border-pink-200', icon: '✨' },
-      SPA: { text: 'ספא', bg: 'bg-purple-50 text-purple-700 border-purple-200', icon: '💆‍♀️' },
-      FITNESS_STUDIO: { text: 'סטודיו כושר', bg: 'bg-blue-50 text-blue-700 border-blue-200', icon: '💪' }
+    const themes: Record<BusinessCategory, { text: string; bg: string }> = {
+      HAIR_SALON: { text: 'מספרה', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
+      CLINIC: { text: 'קליניקה', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+      BEAUTY_SALON: { text: 'מכון יופי', bg: 'bg-pink-50 text-pink-700 border-pink-200' },
+      SPA: { text: 'ספא', bg: 'bg-purple-50 text-purple-700 border-purple-200' },
+      FITNESS_STUDIO: { text: 'סטודיו כושר', bg: 'bg-blue-50 text-blue-700 border-blue-200' }
     };
-    return themes[cat] || { text: cat, bg: 'bg-gray-50 text-gray-700 border-gray-200', icon: '💼' };
+    return themes[cat] || { text: cat, bg: 'bg-gray-50 text-gray-700 border-gray-200' };
   };
+
   const searchSuggestions = React.useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return [];
@@ -107,7 +154,6 @@ const Home: React.FC = () => {
 
     return Array.from(suggestionsSet.values()).slice(0, 6);
   }, [searchTerm, businesses]);
-
   useEffect(() => {
     const roleStr = user?.role as unknown as string;
     if (user && (roleStr === 'OWNER' || roleStr === 'BUSINESS_OWNER')) {
@@ -156,7 +202,6 @@ const Home: React.FC = () => {
 
     fetchHomeData();
   }, [user, navigate]);
-
   useEffect(() => {
     const isSearching = activeSearchTerm.trim() !== '' || activeCategory !== 'ALL' || filterByLocation;
     let results = [...businesses];
@@ -252,7 +297,6 @@ const Home: React.FC = () => {
     }
     navigate(`/business/${businessId}`);
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col font-sans" dir="rtl">
       <Navbar />
@@ -274,10 +318,15 @@ const Home: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-12">
         <form onSubmit={handleSearchSubmit} className="bg-white p-5 rounded-2xl shadow-xl border border-gray-100 -mt-24 relative z-10 flex flex-col md:flex-row gap-4 items-center justify-between" dir="rtl">
           <div className="w-full md:flex-1 relative text-right" dir="rtl">
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">🔍</div>
+            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-gray-400">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <circle cx="11" cy="11" r="8" />
+                <path strokeLinecap="round" d="M21 21l-4.35-4.35" />
+              </svg>
+            </div>
             <input
               type="text"
-              placeholder="חפש לפי שם עסק, סוג שירות או כתובת..."
+              placeholder={isListening ? 'מקשיב עכשיו... דבר למיקרופון' : 'חפש לפי שם עסק, סוג שירות או כתובת...'}
               value={searchTerm}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 180)}
@@ -285,15 +334,37 @@ const Home: React.FC = () => {
                 setSearchTerm(e.target.value);
                 setShowSuggestions(true);
               }}
-              className="w-full pr-10 pl-24 py-3 border border-gray-200 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-all text-right"
+              className={`w-full pr-10 pl-32 py-3 border rounded-xl shadow-inner focus:outline-none focus:ring-2 text-sm font-medium transition-all text-right ${
+                isListening
+                  ? 'border-red-400 bg-red-50/40 focus:ring-red-400'
+                  : 'border-gray-200 focus:ring-blue-500'
+              }`}
             />
-            <button
-              type="submit"
-              onClick={() => setShowSuggestions(false)}
-              className="absolute left-1.5 top-1.5 bottom-1.5 px-5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-all active:scale-95 shadow-md flex items-center justify-center cursor-pointer"
-            >
-              חיפוש
-            </button>
+            <div className="absolute left-1.5 top-1.5 bottom-1.5 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleVoiceSearch}
+                title={isListening ? 'עצור הקלטה קולית' : 'חיפוש קולי בעברית'}
+                className={`h-full px-2.5 rounded-lg flex items-center justify-center transition-all cursor-pointer border ${
+                  isListening
+                    ? 'bg-red-500 text-white border-red-600 animate-pulse shadow-sm'
+                    : 'bg-gray-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 border-gray-200'
+                }`}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
+                </svg>
+              </button>
+
+              <button
+                type="submit"
+                onClick={() => setShowSuggestions(false)}
+                className="h-full px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-all active:scale-95 shadow-md flex items-center justify-center cursor-pointer"
+              >
+                חיפוש
+              </button>
+            </div>
 
             {showSuggestions && searchSuggestions.length > 0 && (
               <ul className="absolute top-full right-0 left-0 mt-1.5 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-gray-50 text-right">
@@ -309,7 +380,10 @@ const Home: React.FC = () => {
                     className="px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors"
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="text-gray-400 text-xs">🔍</span>
+                      <svg className="w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <path strokeLinecap="round" d="M21 21l-4.35-4.35" />
+                      </svg>
                       <span className="text-sm font-bold text-gray-800">{item.label}</span>
                     </div>
                     <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-gray-100 text-gray-500">
@@ -320,7 +394,6 @@ const Home: React.FC = () => {
               </ul>
             )}
           </div>
-
           <div className="w-full md:w-64 text-right" dir="rtl">
             <select
               value={selectedCategory}
@@ -331,11 +404,11 @@ const Home: React.FC = () => {
               className="w-full px-4 py-3 border border-gray-200 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold text-gray-700 transition-all cursor-pointer text-right"
             >
               <option value="ALL">כל התחומים</option>
-              <option value="HAIR_SALON">💈 מספרות</option>
-              <option value="CLINIC">🩺 קליניקות ומרפאות</option>
-              <option value="BEAUTY_SALON">✨ מכוני יופי וקוסמטיקה</option>
-              <option value="SPA">💆‍♀️ ספא וטיפולים</option>
-              <option value="FITNESS_STUDIO">💪 סטודיו ואימונים</option>
+              <option value="HAIR_SALON">מספרות ועיצוב שיער</option>
+              <option value="CLINIC">קליניקות ומרפאות</option>
+              <option value="BEAUTY_SALON">מכוני יופי וקוסמטיקה</option>
+              <option value="SPA">ספא וטיפולים</option>
+              <option value="FITNESS_STUDIO">סטודיו ואימונים</option>
             </select>
           </div>
           <button
@@ -348,9 +421,12 @@ const Home: React.FC = () => {
                 : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
             }`}
           >
-            <span>📍</span>
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s-6-5.686-6-10a6 6 0 1112 0c0 4.314-6 10-6 10z" />
+              <circle cx="12" cy="11" r="2.5" />
+            </svg>
             <span>
-              {locationLoading ? 'מאתר מיקום...' : filterByLocation ? 'קרוב אליי (עד 20 ק"מ) ✓' : 'סנן לפי המיקום שלי'}
+              {locationLoading ? 'מאתר מיקום...' : filterByLocation ? 'קרוב אליי (עד 20 ק"מ)' : 'סנן לפי המיקום שלי'}
             </span>
           </button>
         </form>
@@ -365,7 +441,12 @@ const Home: React.FC = () => {
         {!loading && !error && isSearchingActive && (
           filteredBusinesses.length === 0 ? (
             <div className="text-center text-gray-400 py-16 bg-white rounded-2xl border border-gray-100 shadow-sm mt-8 max-w-xl mx-auto p-8" dir="rtl">
-              <span className="text-4xl block mb-3 text-center">📱</span>
+              <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center">
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path strokeLinecap="round" d="M21 21l-4.35-4.35" />
+                </svg>
+              </div>
               <h4 className="text-sm font-bold text-gray-700 text-center">
                 {isSearchingActive ? 'לא נמצאו עסקים התואמים לחיפוש שלך.' : 'אין לך עסקים שמורים ברשימת המועדפים.'}
               </h4>
@@ -393,18 +474,21 @@ const Home: React.FC = () => {
                           {b.name.substring(0, 2)}
                         </div>
                       )}
-                      <span className={`absolute top-3 left-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black border shadow-sm backdrop-blur-md ${theme.bg}`}>
-                        <span>{theme.icon}</span> <span>{theme.text}</span>
+                      <span className={`absolute top-3 left-3 inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black border shadow-sm backdrop-blur-md ${theme.bg}`}>
+                        {theme.text}
                       </span>
                     </div>
-
                     <div className="p-5 flex flex-col justify-between flex-1 text-right" dir="rtl">
                       <div>
                         <h4 className="text-base font-black text-gray-900 group-hover:text-blue-600 transition-colors">
                           {b.name}
                         </h4>
                         <p className="text-xs text-gray-400 font-semibold mt-1 flex items-center gap-1.5 flex-wrap">
-                          <span>📍</span> <span>{b.address}</span>
+                          <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s-6-5.686-6-10a6 6 0 1112 0c0 4.314-6 10-6 10z" />
+                            <circle cx="12" cy="11" r="2.5" />
+                          </svg>
+                          <span>{b.address}</span>
                           {userLocation && (b as any).latitude && (b as any).longitude && (
                             <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
                               {calculateDistanceKm(userLocation.lat, userLocation.lon, (b as any).latitude, (b as any).longitude)} ק"מ ממך
@@ -435,7 +519,15 @@ const Home: React.FC = () => {
                           className="w-9 h-9 rounded-full bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-all active:scale-90 cursor-pointer border border-gray-100"
                           title={isFav ? 'הסר מהמועדפים' : 'הוסף למועדפים'}
                         >
-                          <span className="text-base">{isFav ? '❤️' : '🤍'}</span>
+                          <svg
+                            className={`w-4 h-4 ${isFav ? 'text-rose-500 fill-rose-500' : 'text-slate-400'}`}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
                         </button>
                       </div>
                     </div>
