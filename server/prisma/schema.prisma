@@ -1,0 +1,291 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. הגדרת רשימת התפקידים המותרים במערכת (Enum)
+enum Role {
+  CLIENT
+  BUSINESS_OWNER
+  SUPER_ADMIN
+}
+
+// הגדרת רשימה סגורה וקשיחה של סוגי העסקים המותרים במערכת
+enum BusinessCategory {
+  HAIR_SALON // מספרה
+  CLINIC // קליניקה
+  BEAUTY_SALON // מכון יופי וקוסמטיקה
+  SPA // ספא
+  FITNESS_STUDIO // סטודיו לכושר / אימונים
+}
+
+// הגדרת מצבי הסטטוס המותרים לתור (Enum)
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELED
+  PAID // 🔥 הסטטוס החדש: מסמן תור שבוצע בהצלחה והכסף נכנס לקופה בפועל
+}
+
+// 2. טבלת המשתמשים במערכת
+model User {
+  id               Int            @id @default(autoincrement()) // מפתח ראשי מסוג מספר הרץ אוטומטית
+  name             String // שם המשתמש
+  email            String?        @unique // כתובת אימייל ייחודית (לא יכולה לחזור על עצמה)
+  password         String // סיסמה מוצפנת (תוצפן בשרת באמצעות bcrypt)
+  phone            String         @unique // מספר טלפון
+  role             Role           @default(CLIENT) // תפקיד המשתמש, ברירת המחדל היא לקוח
+  createdAt        DateTime       @default(now()) // חותמת זמן אוטומטית לרגע ההרשמה
+  updatedAt        DateTime       @updatedAt // חותמת זמן המתעדכנת אוטומטית בכל שינוי
+  businesses       Business[] // קשר מסוג One-to-Many: משתמש (מסוג בעל עסק) יכול לנהל מספר עסקים במקביל
+  appointments     Appointment[]  @relation(name: "ClientAppointments") // קשר מסוג One-to-Many: משתמש (מסוג לקוח) יכול לקבוע תורים רבים
+  favorites        Favorite[] // 🔥 הוספת הקשר ההפוך עבור מועדפי המשתמש
+  notifications    Notification[]
+  clientNotes      ClientNote[]
+  signedForms      SignedForm[]
+  noShowCount      Int            @default(0)
+  reliabilityScore Int            @default(100)
+  passkeys         Passkey[]
+  reviews          Review[]
+}
+
+// טבלת העסקים במערכת
+model Business {
+  id           Int              @id @default(autoincrement())
+  name         String
+  category     BusinessCategory
+  address      String
+  imageUrl     String? // 🔥 הוספת שורה זו עבור תמונת העסק
+  ownerId      Int
+  owner        User             @relation(fields: [ownerId], references: [id])
+  workingHours WorkingHours[]
+  services     Service[]
+  appointments Appointment[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  staff        Staff[]
+  favorites    Favorite[] // 🔥 הוספת הקשר ההפוך עבור מועדפי העסק
+  blockedTimes BlockedTime[]
+
+  latitude             Float? // קו רוחב לחישוב מרחק מהלקוח
+  longitude            Float? // קו אורך לחישוב מרחק מהלקוח
+  muteNotifications    Boolean           @default(false) // השתקה זמנית של התראות לבעל העסק
+  subscriptionStatus   String            @default("TRIAL") // TRIAL, ACTIVE, SUSPENDED
+  trialEndsAt          DateTime? // תאריך סיום תקופת הניסיון
+  smsQuota             Int               @default(150) // מכסת הודעות SMS/WhatsApp חודשית
+  smsUsedThisMonth     Int               @default(0) // כמות הודעות שנוצלו החודש
+  cancellationHours    Int               @default(0) // מינימום שעות מראש לביטול תור עצמי ע"י לקוח (0 = ללא הגבלה)
+  googleRefreshToken   String?
+  monthlyFee           Float             @default(99) // תעריף מנוי חודשי בש"ח (ברירת מחדל 99 ₪)
+  platformPayments     PlatformPayment[]
+  clientNotes          ClientNote[]
+  signedForms          SignedForm[]
+  smartBiEnabled       Boolean           @default(true)
+  maxNoShowsAllowed    Int               @default(2)
+  flashDiscountPercent Int               @default(0)
+  reviews              Review[]
+}
+
+model Staff {
+  id           Int                 @id @default(autoincrement())
+  name         String
+  imageUrl     String?
+  businessId   Int
+  business     Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  workingHours StaffWorkingHours[]
+  breaks       StaffBreak[]
+  appointments Appointment[]
+  services     Service[]
+  blockedTimes BlockedTime[]
+
+  createdAt DateTime @default(now())
+}
+
+model StaffWorkingHours {
+  id        Int     @id @default(autoincrement())
+  staffId   Int
+  staff     Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  day       Int
+  isOpen    Boolean @default(true)
+  openTime  String  @default("09:00")
+  closeTime String  @default("17:00")
+
+  @@unique([staffId, day])
+}
+
+model StaffBreak {
+  id        Int    @id @default(autoincrement())
+  staffId   Int
+  staff     Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  day       Int
+  startTime String
+  endTime   String
+}
+
+// טבלת השירותים שהעסק מציע - מעודכן עם Cascade
+model Service {
+  id              Int           @id @default(autoincrement())
+  name            String
+  price           Float
+  durationMinutes Int
+  businessId      Int
+  // 🔥 שינוי: הוספת onDelete: Cascade - מחיקת עסק תמחק אוטומטית את כל השירותים שלו
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointments    Appointment[]
+  staff           Staff[]
+}
+
+// טבלת התורים במערכת - מעודכן עם שיוך לאיש צוות
+model Appointment {
+  id              Int               @id @default(autoincrement())
+  clientId        Int
+  client          User              @relation(name: "ClientAppointments", fields: [clientId], references: [id])
+  businessId      Int
+  business        Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  serviceId       Int
+  service         Service           @relation(fields: [serviceId], references: [id])
+  staffId         Int?
+  staff           Staff?            @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  staffName       String?
+  date            DateTime
+  startTime       String
+  endTime         String
+  status          AppointmentStatus @default(PENDING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  reminder24hSent Boolean           @default(false)
+  reminder2hSent  Boolean           @default(false)
+  clientConfirmed Boolean           @default(false)
+  confirmToken    String?           @unique @default(uuid())
+  review          Review?
+}
+
+model Favorite {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  businessId Int
+  createdAt  DateTime @default(now())
+
+  // יחסי גומלין מול הטבלאות הקיימות
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId]) // מונע שמירה כפולה של אותו עסק על ידי אותו משתמש
+}
+
+// טבלת שעות הפעילות והאילוצים של העסק - מעודכן עם Cascade
+model WorkingHours {
+  id         Int      @id @default(autoincrement())
+  businessId Int
+  // 🔥 שינוי: הוספת onDelete: Cascade - מחיקת עסק תמחק אוטומטית את שעות הפעילות שלו
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  day        Int
+  isOpen     Boolean  @default(true)
+  openTime   String   @default("09:00")
+  closeTime  String   @default("17:00")
+  breakStart String   @default("13:00")
+  breakEnd   String   @default("14:00")
+
+  @@unique([businessId, day])
+}
+
+// טבלת חסימות זמן וימי חופשה נקודתיים לעסק או לעובד ספציפי
+model BlockedTime {
+  id         Int      @id @default(autoincrement())
+  businessId Int
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staffId    Int? // אם null — החסימה חלה על כל העסק; אם יש מזהה — חלה רק על אותו עובד
+  staff      Staff?   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date       DateTime
+  startTime  String // לדוגמה: "10:00" (או "00:00" ליום שלם)
+  endTime    String // לדוגמה: "13:00" (או "23:59" ליום שלם)
+  reason     String? // סיבת החסימה (אופציונלי, לדוגמה: "חופשה" / "סידורים")
+  createdAt  DateTime @default(now())
+}
+
+// טבלת התראות ותזכורות חיות למשתמשים (בעלי עסקים ולקוחות)
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String // כותרת קצרה להתראה
+  message   String // תוכן ההודעה המלא
+  type      String   @default("INFO") // BOOKING, CANCEL, REMINDER, WAITLIST
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// הגדרות פלטפורמה ראשיות (מנהל מערכת)
+model SystemSettings {
+  id              Int      @id @default(1)
+  supportPhone    String   @default("972500000000")
+  maintenanceMode Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+}
+
+// יומן גבייה ותשלומים של הפלטפורמה מבעלי עסקים
+model PlatformPayment {
+  id              Int       @id @default(autoincrement())
+  businessId      Int
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  amount          Float
+  paymentMethod   String // BANK_TRANSFER, CHECK, BIT_PAYBOX, CREDIT_LINK
+  referenceNumber String? // מספר צ'ק, אסמכתא בנקאית או 4 ספרות אחרונות
+  status          String    @default("PAID") // PAID, PENDING, FAILED
+  billingMonth    String // לדוגמה: 2026-11
+  dueDate         DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// הערות מטפל פרטיות בתיק הלקוח (CRM)
+model ClientNote {
+  id         Int      @id @default(autoincrement())
+  businessId Int
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId   Int
+  client     User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+// הצהרות בריאות וטפסים דיגיטליים חתומים
+model SignedForm {
+  id               Int      @id @default(autoincrement())
+  businessId       Int
+  business         Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  clientId         Int
+  client           User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  formTitle        String   @default("הצהרת בריאות והסכמה לטיפול")
+  answersJson      String // תשובות השאלון בפורמט JSON
+  signatureDataUrl String   @db.Text // חתימה דיגיטלית בפורמט Base64
+  signedAt         DateTime @default(now())
+}
+
+model Passkey {
+  id         String   @id
+  userId     Int
+  publicKey  Bytes
+  counter    Int
+  transports String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id            Int         @id @default(autoincrement())
+  rating        Int
+  comment       String?
+  clientId      Int
+  client        User        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  businessId    Int
+  business      Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointmentId Int         @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+}

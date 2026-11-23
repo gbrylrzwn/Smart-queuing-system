@@ -1,70 +1,60 @@
-# Getting Started with Create React App
+# 💈 מערכת חכמה לניהול ותזמון תורים (Smart Queue Architecture)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+מערכת אקו-סיסטם מלאה ומבוזרת (Full-Stack Decoupled Architecture) לניהול, תזמון ואופטימיזציה של תורים בזמן אמת, המותאמת לעסקים מרובי שירותים (כמו מספרות, קליניקות ומכוני יופי). המערכת נבנתה תחת עקרונות הנדסת תוכנה קשיחים, הפרדת רשויות מלאה (MVC Pattern), ובקרת מקביליות חסם ברמת מסד הנתונים.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## 🚀 ארכיטקטורה טכנולוגית (Tech Stack)
 
-### `npm start`
+### Backend (צד השרת)
+- **סביבת ריצה:** Node.js עם TypeScript (Type-Safe Environment).
+- **תשתית שרת:** Express.js (Modular Router System).
+- **שכבת נתונים ו-ORM:** Prisma Client המחובר למסד נתונים יחסי **PostgreSQL**.
+- **אבטחה ואימות:** JSON Web Token (JWT) לאימות משתמשים, ו-Bcrypt להצפנת סיסמאות במבנה הגיבוב (Hashing).
+- **ניהול תצורה:** Dotenv להפרדת משתני סביבה מאובטחים (.env).
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Frontend (צד הלקוח)
+- **תשתית:** React.js עם TypeScript (Single Page Application).
+- **ניהול מצב גלובלי:** React Context API לניהול אחיד של יישות המשתמש המחובר.
+- **מערכת ניווט:** React Router DOM הכוללת רכיבי הגנה קשיחים (ProtectedRoute Guards).
+- **שכבת רשת:** Axios Client הכולל Request Interceptor להזרקה אוטומטית של טוקן ה-JWT.
+- **עיצוב וממשק:** Tailwind CSS לפיתוח ממשק משתמש רספונסיבי מותאם מובייל ודסקטופ.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## 🧠 אלגוריתם הליבה ומנגנוני הגנה (Core Business Logic)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. **אלגוריתם חיתוך זמנים דינמי (Time Slots Allocation):** השרת מחשב בזמן אמת משבצות זמן פנויות על בסיס משך הזמן של השירות המבוקש בדקות, תוך הצלבה מול אילוצי שעות הפעילות של העסק, חלוני הפסקות מובנים, וסינון תורים קיימים בבסיס הנתונים.
+2. **בקרת מקביליות חסם (Concurrency Control):** מניעת תנאי מירוץ (Race Condition) וכפל תורים סימולטני באותו המילי-שנייה באמצעות אינדקס מורכב ייחודי (`@@unique([businessId, date, startTime])`) ברמת ה-PostgreSQL ותפיסת שגיאות קריסה (`P2002`) בשרת.
+3. **אבטחת הרשאות מבוססת תפקיד (RBAC):** הפרדה מוחלטת בין ממשק הלקוח (`CLIENT`) לממשק המנהל (`BUSINESS_OWNER`) באמצעות שרשרת שכבות ביניים (Middlewares) בשרת ו-Router Guards בדפדפן.
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 💻 הוראות הרצה והפעלה (Setup Instructions)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### 1. הכנת מסד הנתונים והשרת (Backend Setup)
+```bash
+# כניסה לתיקיית השרת
+cd server
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# התקנת הספריות והתלויות
+npm install
 
-### `npm run eject`
+# הזרקת מבנה הטבלאות והקשרים לתוך PostgreSQL
+npx prisma migrate dev --name init
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+# הרצת השרת במצב פיתוח (Watch Mode)
+npm run dev
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 2. הפעלת ממשק המשתמש (Frontend Setup)
+```bash
+# כניסה לתיקיית הלקוח
+cd client
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+# התקנת הספריות
+npm install
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+# הרצת אפליקציית ה-React בדפדפן
+npm run dev
+```

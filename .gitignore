@@ -1,1 +1,41 @@
+
+# 1. קבצי סודיות ואבטחה (חובה מוחלטת למניעת זריקת סודות ל-GitHub)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+server/.env
+client/.env
+
+# 2. תיקיות הספריות החיצוניות (שוקלות המון ומוקמות מחדש ע"י npm install)
 node_modules/
+client/node_modules/
+server/node_modules/
+/.pnp
+.pnp.js
+
+# 3. תיקיות הקוד המקומפל והמהודר (Build Outputs)
+dist/
+build/
+client/build/
+client/dist/
+server/dist/
+
+# 4. דוחות בדיקות קוד ומערכת
+coverage/
+client/coverage/
+server/coverage/
+
+# 5. קבצי לוגים ותיעוד שגיאות זמניים
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 6. קבצי מערכת הפעלה וסביבת עבודה אישית (OS & IDE files)
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
