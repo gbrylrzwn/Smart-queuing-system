@@ -36,46 +36,62 @@ const Home: React.FC = () => {
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('הדפדפן שלך אינו תומך בחיפוש קולי. מומלץ להשתמש ב-Chrome או Safari עדכני.');
+      alert('הדפדפן הנוכחי אינו תומך בחיפוש קולי. אם פתחת את הקישור מתוך WhatsApp, לחץ על 3 הנקודות למעלה ובחר "פתח ב-Chrome / Safari".');
       return;
     }
 
     if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch {}
       setIsListening(false);
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'he-IL';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'he-IL';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
 
-    recognition.onresult = (event: any) => {
-      const spokenText = String(event.results?.[0]?.[0]?.transcript || '').trim();
-      if (spokenText) {
-        setSearchTerm(spokenText);
-        setActiveSearchTerm(spokenText);
-        setActiveCategory(selectedCategory);
-        setShowSuggestions(false);
-      }
-    };
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i].transcript;
+        }
+        const cleanText = transcript.trim();
+        if (cleanText) {
+          setSearchTerm(cleanText);
+          setActiveSearchTerm(cleanText);
+          setActiveCategory(selectedCategory);
+          setShowSuggestions(false);
+        }
+      };
 
-    recognition.onerror = () => {
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        if (event?.error === 'not-allowed') {
+          alert('הגישה למיקרופון חסומה. אנא אשר הרשאת מיקרופון בהגדרות הדפדפן.');
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
       setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
+      alert('לא ניתן היה להפעיל את המיקרופון במכשיר זה.');
+    }
   };
+
   const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
