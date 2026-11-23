@@ -4,16 +4,20 @@ import prisma from '../Config/db';
 
 export class NotificationService {
   /**
-   * שליחת הודעת WhatsApp / SMS אמיתית לסמארטפון
+   * שליחת הודעת SMS אמיתית לסמארטפון של הלקוח ומחזירה true רק אם הספק אישר שליחה
    */
-  public static async sendExternalMessage(phone: string, text: string): Promise<void> {
-    if (!phone) return;
+  public static async sendExternalMessage(phone: string, text: string): Promise<boolean> {
+    if (!phone) return false;
 
     const digitsOnly = phone.replace(/[^0-9]/g, '');
-    const intlPhone = digitsOnly.startsWith('0') ? `972${digitsOnly.slice(1)}` : digitsOnly;
-    const e164Phone = `+${intlPhone}`;
+    if (digitsOnly.length < 9) return false;
 
-    // 1. שליחת SMS אמיתית דרך Twilio (אם מוגדר ב-Render / .env)
+    const intlPhone = digitsOnly.startsWith('0') ? `972${digitsOnly.slice(1)}` : digitsOnly;
+    const localPhone = digitsOnly.startsWith('972') ? `0${digitsOnly.slice(3)}` : digitsOnly;
+    const e164Phone = `+${intlPhone}`;
+    const senderName = process.env.SMS_SENDER_NAME || 'SmartQueue';
+
+    // 1. שליחת SMS אמיתית דרך Twilio (בינלאומי + ישראל)
     const twilioSid = process.env.TWILIO_ACCOUNT_SID;
     const twilioToken = process.env.TWILIO_AUTH_TOKEN;
     const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
@@ -26,73 +30,72 @@ export class NotificationService {
         formData.append('From', twilioFrom);
         formData.append('Body', text);
 
-        const resp = await fetch(`https://twilio.com{twilioSid}/Messages.json`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${authHeader}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: formData.toString(),
-        });
+        const resp = await fetch(
+          `https://twilio.com{twilioSid}/Messages.json`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Basic ${authHeader}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: formData.toString(),
+          }
+        );
 
+        const data: any = await resp.json().catch(() => ({}));
         if (resp.ok) {
-          console.log(`✅ [SMS אמיתי נשלח דרך Twilio אל ${e164Phone}]`);
-          return;
-        } else {
-          const errText = await resp.text();
-          console.error('❌ שגיאת Twilio SMS:', errText);
+          console.log(`✅ [Twilio SMS נשלח בהצלחה אל ${e164Phone} | SID: ${data?.sid || 'OK'}]`);
+          return true;
         }
+        console.error('❌ שגיאת Twilio SMS:', data?.message || resp.statusText);
+        return false;
       } catch (err) {
-        console.error('❌ שגיאת רשת בשליחת Twilio SMS:', err);
+        console.error('❌ שגיאת תקשורת מול Twilio:', err);
+        return false;
       }
     }
-
-    // 2. שליחת SMS דרך ספק Webhook / ישראלי (אם מוגדר)
+    // 2. שליחת SMS אמיתית דרך ספק SMS ישראלי / Webhook מסחרי
     const webhookUrl = process.env.SMS_WEBHOOK_URL;
     const apiKey = process.env.SMS_API_KEY;
+    const apiUser = process.env.SMS_API_USER || '';
 
     if (webhookUrl && apiKey) {
       try {
-        await fetch(webhookUrl, {
+        const resp = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            to: intlPhone,
-            phone: digitsOnly,
+            key: apiKey,
+            user: apiUser,
+            sender: senderName,
+            recipient: localPhone,
+            to: e164Phone,
+            phone: localPhone,
+            msg: text,
             message: text,
           }),
         });
-        console.log(`✅ [SMS חיצוני נשלח אל ${intlPhone}]`);
-        return;
+
+        if (resp.ok) {
+          console.log(`✅ [SMS מסחרי נשלח בהצלחה אל ${localPhone} דרך ${senderName}]`);
+          return true;
+        }
+        const errBody = await resp.text();
+        console.error('❌ שגיאת ספק SMS ישראלי:', errBody);
+        return false;
       } catch (err) {
-        console.error('❌ שגיאה בשליחת SMS חיצוני:', err);
+        console.error('❌ שגיאת תקשורת מול ספק SMS:', err);
+        return false;
       }
     }
 
-    // 3. שליחת WhatsApp אמיתית לסמארטפון לבדיקה מיידית (CallMeBot)
-    const callMeBotPhone = process.env.CALLMEBOT_PHONE;
-    const callMeBotKey = process.env.CALLMEBOT_APIKEY;
-
-    if (callMeBotPhone && callMeBotKey) {
-      try {
-        const targetWa = digitsOnly.startsWith('972') ? intlPhone : callMeBotPhone;
-        const url = `https://callmebot.com{encodeURIComponent(targetWa)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(callMeBotKey)}`;
-        await fetch(url);
-        console.log(`✅ [WhatsApp אמיתי נשלח לסמארטפון ${targetWa}]`);
-      } catch (err) {
-        console.error('❌ שגיאה בשליחת WhatsApp:', err);
-      }
-    }
+    console.warn(`⚠️ [SMS לא נשלח בפועל אל ${localPhone}]: טרם הוגדרו מפתחות ספק SMS ב-Environment.`);
+    return false;
   }
 
-
-
-  /**
-   * שליחת הודעת אימייל למשתמש שהזין כתובת מייל
-   */
   private static async sendEmailMessage(toEmail: string, subject: string, text: string): Promise<void> {
     if (!toEmail) return;
 
@@ -110,14 +113,14 @@ export class NotificationService {
         host: smtpHost,
         port: Number(process.env.SMTP_PORT || 587),
         secure: Number(process.env.SMTP_PORT) === 465,
-        auth: { user: smtpUser, pass: smtpPass }
+        auth: { user: smtpUser, pass: smtpPass },
       });
 
       await transporter.sendMail({
         from: `"SmartQueue" <${smtpUser}>`,
         to: toEmail,
         subject,
-        text
+        text,
       });
       console.log(`✅ [אימייל נשלח בהצלחה אל ${toEmail}]`);
     } catch (err) {
@@ -140,10 +143,9 @@ export class NotificationService {
       console.log(`\n🔔 [התראה חדשה למשתמש #${userId} | טלפון: ${phone || 'ללא'}]\n   כותרת: ${title}\n   תוכן: ${message}\n`);
 
       await prisma.notification.create({
-        data: { userId, title, message, type }
+        data: { userId, title, message, type },
       });
 
-      // שליחה אוטומטית לאימייל אם למשתמש יש כתובת מייל רשומה (חינם וללא פגיעה במכסת SMS)
       let targetEmail = email;
       if (!targetEmail) {
         const u = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
@@ -169,11 +171,13 @@ export class NotificationService {
           return;
         }
 
-        await this.sendExternalMessage(phone, `${title}\n${message}`);
-        await prisma.business.update({
-          where: { id: businessId },
-          data: { smsUsedThisMonth: { increment: 1 } }
-        });
+        const sent = await this.sendExternalMessage(phone, `${title}\n${message}`);
+        if (sent) {
+          await prisma.business.update({
+            where: { id: businessId },
+            data: { smsUsedThisMonth: { increment: 1 } },
+          });
+        }
       } else {
         await this.sendExternalMessage(phone, `${title}\n${message}`);
       }
@@ -181,7 +185,6 @@ export class NotificationService {
       console.error('NotificationService.notifyUser error:', err);
     }
   }
-
   public static startReminderScheduler(): void {
     const clientBaseUrl = (process.env.CLIENT_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -198,9 +201,9 @@ export class NotificationService {
           where: {
             status: 'CONFIRMED',
             date: { gte: todayStart, lte: twoDaysAhead },
-            OR: [{ reminder24hSent: false }, { reminder2hSent: false }]
+            OR: [{ reminder24hSent: false }, { reminder2hSent: false }],
           },
-          include: { client: true, business: true, service: true }
+          include: { client: true, business: true, service: true },
         });
 
         for (const app of upcomingApps) {
@@ -225,15 +228,15 @@ export class NotificationService {
               email: app.client?.email,
               title: '📅 תזכורת לתור מחר',
               message: `שלום ${app.client?.name}, תזכורת לתור שלך ב-${app.business.name}${staffText} בתאריך ${dateLabel} בשעה ${app.startTime}.\nלאישור הגעה מהיר בלחיצה: ${confirmLink}`,
-              type: 'REMINDER'
+              type: 'REMINDER',
             });
 
             await prisma.appointment.update({
               where: { id: app.id },
               data: {
                 reminder24hSent: true,
-                confirmToken: token
-              }
+                confirmToken: token,
+              },
             });
           }
 
@@ -245,12 +248,12 @@ export class NotificationService {
               email: app.client?.email,
               title: '⏰ התור שלך בעוד כשעתיים',
               message: `שלום ${app.client?.name}, מחכים לך היום ב-${app.business.name}${staffText} בשעה ${app.startTime} (${app.service.name}).`,
-              type: 'REMINDER'
+              type: 'REMINDER',
             });
 
             await prisma.appointment.update({
               where: { id: app.id },
-              data: { reminder2hSent: true }
+              data: { reminder2hSent: true },
             });
           }
         }
@@ -263,4 +266,3 @@ export class NotificationService {
     setInterval(runCheck, 10 * 60 * 1000);
   }
 }
-
