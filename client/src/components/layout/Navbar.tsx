@@ -428,20 +428,7 @@ const Navbar: React.FC = () => {
                                     </button>
                                 )}
 
-                                {user?.role === 'BUSINESS_OWNER' && (
-                                    <button
-                                        onClick={() => {
-                                            setIsDrawerOpen(false);
-                                            navigate('/business-invoices');
-                                        }}
-                                        className="w-full text-right px-4 py-3 text-sm font-bold text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100/70 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
-                                    >
-                                        <svg className="w-4 h-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        <span>הפקת חשבוניות וקבלות</span>
-                                    </button>
-                                )}
+                                
 
 
                                 {user?.role === 'SUPER_ADMIN' && (
