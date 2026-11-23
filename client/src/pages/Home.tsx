@@ -36,7 +36,7 @@ const Home: React.FC = () => {
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('הדפדפן הנוכחי אינו תומך בחיפוש קולי. אם פתחת את הקישור מתוך WhatsApp, לחץ על 3 הנקודות למעלה ובחר "פתח ב-Chrome / Safari".');
+      alert('הדפדפן הנוכחי אינו תומך בחיפוש קולי. מומלץ לפתוח את האתר בדפדפן Chrome או Safari.');
       return;
     }
 
@@ -52,7 +52,7 @@ const Home: React.FC = () => {
       const recognition = new SpeechRecognition();
       recognition.lang = 'he-IL';
       recognition.continuous = false;
-      recognition.interimResults = true;
+      recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
@@ -60,12 +60,17 @@ const Home: React.FC = () => {
       };
 
       recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i].transcript;
+        let spoken = '';
+        if (event && event.results) {
+          for (let i = 0; i < event.results.length; i++) {
+            const resItem = event.results.item(i);
+            const alt = resItem && resItem.item(0);
+            const textPart = (alt && alt.transcript) || '';
+            spoken += textPart + ' ';
+          }
         }
-        const cleanText = transcript.trim();
-        if (cleanText) {
+        const cleanText = spoken.trim();
+        if (cleanText && cleanText.toLowerCase() !== 'undefined') {
           setSearchTerm(cleanText);
           setActiveSearchTerm(cleanText);
           setActiveCategory(selectedCategory);
@@ -76,7 +81,7 @@ const Home: React.FC = () => {
       recognition.onerror = (event: any) => {
         setIsListening(false);
         if (event?.error === 'not-allowed') {
-          alert('הגישה למיקרופון חסומה. אנא אשר הרשאת מיקרופון בהגדרות הדפדפן.');
+          alert('הגישה למיקרופון חסומה. אנא אשר גישה למיקרופון בהגדרות הדפדפן.');
         }
       };
 
@@ -91,6 +96,7 @@ const Home: React.FC = () => {
       alert('לא ניתן היה להפעיל את המיקרופון במכשיר זה.');
     }
   };
+
 
   const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371;

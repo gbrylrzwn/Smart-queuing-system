@@ -11,7 +11,43 @@ export class NotificationService {
 
     const digitsOnly = phone.replace(/[^0-9]/g, '');
     const intlPhone = digitsOnly.startsWith('0') ? `972${digitsOnly.slice(1)}` : digitsOnly;
+    const e164Phone = `+${intlPhone}`;
 
+    // 1. שליחת SMS אמיתית דרך Twilio (אם מוגדר ב-Render / .env)
+    const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+    const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+    const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
+
+    if (twilioSid && twilioToken && twilioFrom) {
+      try {
+        const authHeader = Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64');
+        const formData = new URLSearchParams();
+        formData.append('To', e164Phone);
+        formData.append('From', twilioFrom);
+        formData.append('Body', text);
+
+        const resp = await fetch(`https://twilio.com{twilioSid}/Messages.json`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${authHeader}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData.toString(),
+        });
+
+        if (resp.ok) {
+          console.log(`✅ [SMS אמיתי נשלח דרך Twilio אל ${e164Phone}]`);
+          return;
+        } else {
+          const errText = await resp.text();
+          console.error('❌ שגיאת Twilio SMS:', errText);
+        }
+      } catch (err) {
+        console.error('❌ שגיאת רשת בשליחת Twilio SMS:', err);
+      }
+    }
+
+    // 2. שליחת SMS דרך ספק Webhook / ישראלי (אם מוגדר)
     const webhookUrl = process.env.SMS_WEBHOOK_URL;
     const apiKey = process.env.SMS_API_KEY;
 
@@ -21,34 +57,37 @@ export class NotificationService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            'Authorization': `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
             to: intlPhone,
             phone: digitsOnly,
-            message: text
-          })
+            message: text,
+          }),
         });
-        console.log(`✅ [SMS/WhatsApp אמיתי נשלח אל ${intlPhone}]`);
+        console.log(`✅ [SMS חיצוני נשלח אל ${intlPhone}]`);
         return;
       } catch (err) {
         console.error('❌ שגיאה בשליחת SMS חיצוני:', err);
       }
     }
 
+    // 3. שליחת WhatsApp אמיתית לסמארטפון לבדיקה מיידית (CallMeBot)
     const callMeBotPhone = process.env.CALLMEBOT_PHONE;
     const callMeBotKey = process.env.CALLMEBOT_APIKEY;
 
     if (callMeBotPhone && callMeBotKey) {
       try {
-        const url = `https://callmebot.com{encodeURIComponent(callMeBotPhone)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(callMeBotKey)}`;
+        const targetWa = digitsOnly.startsWith('972') ? intlPhone : callMeBotPhone;
+        const url = `https://callmebot.com{encodeURIComponent(targetWa)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(callMeBotKey)}`;
         await fetch(url);
-        console.log(`✅ [WhatsApp נשלח לסמארטפון ${callMeBotPhone}]`);
+        console.log(`✅ [WhatsApp אמיתי נשלח לסמארטפון ${targetWa}]`);
       } catch (err) {
         console.error('❌ שגיאה בשליחת WhatsApp:', err);
       }
     }
   }
+
 
 
   /**
