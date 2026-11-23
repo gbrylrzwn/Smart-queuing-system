@@ -198,42 +198,71 @@ export class AdminController {
        * עדכון הגדרות פלטפורמה ראשיות ע"י מנהל מערכת ראשי
        * PUT /api/admin/settings
        */
-     public static async updateSystemSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!AdminController.verifySuperAdmin(req, res)) return;
-
-      const existing = await prisma.systemSettings.findUnique({ where: { id: 1 } });
-      let formattedPhone = existing?.supportPhone || '972500000000';
-
-      if (req.body.supportPhone !== undefined) {
-        const rawPhone = String(req.body.supportPhone || '').replace(/\D/g, '');
-        formattedPhone = rawPhone.startsWith('0') ? '972' + rawPhone.slice(1) : rawPhone;
-
-        if (!formattedPhone || formattedPhone.length < 9) {
-          res.status(400).json({ error: 'יש להזין מספר טלפון תקין.' });
-          return;
+      public static async updateSystemSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+          if (!AdminController.verifySuperAdmin(req, res)) return;
+    
+          const existing = await prisma.systemSettings.findUnique({ where: { id: 1 } });
+          let formattedPhone = existing?.supportPhone || '972500000000';
+    
+          if (req.body.supportPhone !== undefined) {
+            const rawPhone = String(req.body.supportPhone || '').replace(/\D/g, '');
+            formattedPhone = rawPhone.startsWith('0') ? '972' + rawPhone.slice(1) : rawPhone;
+    
+            if (!formattedPhone || formattedPhone.length < 9) {
+              res.status(400).json({ error: 'יש להזין מספר טלפון תקין.' });
+              return;
+            }
+          }
+    
+          const maintenanceMode =
+            req.body.maintenanceMode !== undefined
+              ? Boolean(req.body.maintenanceMode)
+              : (existing?.maintenanceMode ?? false);
+    
+          const launchFreezeMode =
+            req.body.launchFreezeMode !== undefined
+              ? Boolean(req.body.launchFreezeMode)
+              : (existing?.launchFreezeMode ?? false);
+    
+          const defaultBusinessStatus =
+            req.body.defaultBusinessStatus && ['TRIAL', 'SUSPENDED'].includes(req.body.defaultBusinessStatus)
+              ? String(req.body.defaultBusinessStatus)
+              : (existing?.defaultBusinessStatus ?? 'TRIAL');
+    
+          const defaultTrialDays =
+            req.body.defaultTrialDays !== undefined && Number(req.body.defaultTrialDays) >= 1
+              ? Number(req.body.defaultTrialDays)
+              : (existing?.defaultTrialDays ?? 14);
+    
+          const settings = await prisma.systemSettings.upsert({
+            where: { id: 1 },
+            update: {
+              supportPhone: formattedPhone,
+              maintenanceMode,
+              launchFreezeMode,
+              defaultBusinessStatus,
+              defaultTrialDays,
+            },
+            create: {
+              id: 1,
+              supportPhone: formattedPhone,
+              maintenanceMode,
+              launchFreezeMode,
+              defaultBusinessStatus,
+              defaultTrialDays,
+            },
+          });
+    
+          res.status(200).json({
+            message: 'הגדרות המערכת עודכנו בהצלחה.',
+            settings,
+          });
+        } catch (error) {
+          next(error);
         }
       }
-
-      const maintenanceMode =
-        req.body.maintenanceMode !== undefined
-          ? Boolean(req.body.maintenanceMode)
-          : (existing?.maintenanceMode ?? false);
-
-      const settings = await prisma.systemSettings.upsert({
-        where: { id: 1 },
-        update: { supportPhone: formattedPhone, maintenanceMode },
-        create: { id: 1, supportPhone: formattedPhone, maintenanceMode },
-      });
-
-      res.status(200).json({
-        message: 'הגדרות המערכת עודכנו בהצלחה.',
-        settings,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+    
 
       /**
    * שליפת יומן גבייה ותשלומים של הפלטפורמה + סיכום תקבולים

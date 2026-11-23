@@ -206,9 +206,16 @@ export class BusinessController {
  */
   public static async getAllBusinesses(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const now = new Date();
       const businesses = await prisma.business.findMany({
         where: {
-          subscriptionStatus: { not: 'SUSPENDED' }
+          subscriptionStatus: { not: 'SUSPENDED' },
+          NOT: {
+            AND: [
+              { subscriptionStatus: 'TRIAL' },
+              { trialEndsAt: { lt: now } },
+            ],
+          },
         },
         select: {
           id: true,
@@ -222,10 +229,10 @@ export class BusinessController {
             select: {
               id: true,
               name: true,
-              price: true
-            }
-          }
-        }
+              price: true,
+            },
+          },
+        },
       });
 
       res.status(200).json({ businesses });
@@ -332,6 +339,13 @@ export class BusinessController {
       // תרגום אוטומטי של כתובת העסק לקואורדינטות GPS בעת ההקמה
       const coords = await BusinessController.geocodeAddress(address);
       const uploadedBusinessImage = await CloudinaryService.uploadImageIfNeeded(imageUrl, 'smart-queue/businesses');
+      const sysSettings = await prisma.systemSettings.findUnique({ where: { id: 1 } });
+      const initialStatus = sysSettings?.defaultBusinessStatus || 'TRIAL';
+      const trialDays = sysSettings?.defaultTrialDays ?? 14;
+      const trialEndsAt =
+        initialStatus === 'TRIAL'
+          ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000)
+          : null;
 
       const result = await prisma.$transaction(async (tx) => {
         const newBusiness = await tx.business.create({
@@ -340,6 +354,8 @@ export class BusinessController {
             category,
             address,
             imageUrl: uploadedBusinessImage,
+            subscriptionStatus: initialStatus,
+            trialEndsAt,
 
             ownerId,
             latitude: coords.latitude,

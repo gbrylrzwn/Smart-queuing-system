@@ -39,30 +39,66 @@ const MaintenanceBanner: React.FC = () => (
   </div>
 );
 
+const LaunchFreezeBanner: React.FC = () => (
+  <div className="min-h-screen bg-gradient-to-br from-blue-950 via-slate-900 to-indigo-950 text-white flex flex-col items-center justify-center p-6 text-center" dir="rtl">
+    <div className="max-w-lg bg-white/10 backdrop-blur-md border border-white/15 p-8 rounded-3xl shadow-2xl space-y-5">
+      <div className="text-5xl">🚀</div>
+      <span className="inline-block px-3 py-1 bg-blue-500/20 text-blue-200 text-xs font-black rounded-full">
+        תור חכם | SmartQueue
+      </span>
+      <h1 className="text-2xl sm:text-3xl font-black">המערכת עולה בקרוב באזורך!</h1>
+      <p className="text-sm text-slate-200 leading-relaxed">
+        אנו מצרפים כעת את העסקים ונותני השירות המובילים. בקרוב ייפתח האתר לקביעת תורים מהירה מכל מקום!
+      </p>
+      <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <a
+          href="/register"
+          className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-xl shadow transition"
+        >
+          🏢 בעל עסק? הירשם להצטרפות מוקדמת
+        </a>
+        <a
+          href="/login"
+          className="w-full sm:w-auto px-5 py-3 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition"
+        >
+          כניסה למנויים / מנהל
+        </a>
+      </div>
+    </div>
+  </div>
+);
+
 const AppRouter: React.FC = () => {
   const { user } = useAuth();
   const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
+  const [launchFreezeMode, setLaunchFreezeMode] = useState<boolean>(false);
 
   useEffect(() => {
     axiosClient
       .get('/admin/settings')
       .then((res) => {
-        if (res.data?.settings?.maintenanceMode) {
-          setMaintenanceMode(true);
-        } else {
-          setMaintenanceMode(false);
-        }
+        setMaintenanceMode(Boolean(res.data?.settings?.maintenanceMode));
+        setLaunchFreezeMode(Boolean(res.data?.settings?.launchFreezeMode));
       })
       .catch(() => {});
   }, [user?.role]);
 
-  const isLockedOut =
-    maintenanceMode &&
-    user?.role !== 'SUPER_ADMIN' &&
-    window.location.pathname !== '/login';
+  const currentPath = window.location.pathname;
 
-  if (isLockedOut) {
+  // 1. הקפאת תחזוקה מלאה — חוסמת את כולם מלבד מנהל המערכת ומסך ההתחברות
+  if (maintenanceMode && user?.role !== 'SUPER_ADMIN' && currentPath !== '/login') {
     return <MaintenanceBanner />;
+  }
+
+  // 2. הקפאת השקה — מאפשרת לבעלי עסקים להירשם ולהתחבר, אך מקפיאה כניסת לקוחות קצה
+  const isAllowedDuringLaunch =
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'BUSINESS_OWNER' ||
+    currentPath === '/login' ||
+    currentPath === '/register';
+
+  if (launchFreezeMode && !isAllowedDuringLaunch) {
+    return <LaunchFreezeBanner />;
   }
 
   return (

@@ -220,11 +220,15 @@ model Notification {
 
 // הגדרות פלטפורמה ראשיות (מנהל מערכת)
 model SystemSettings {
-  id              Int      @id @default(1)
-  supportPhone    String   @default("972500000000")
-  maintenanceMode Boolean  @default(false)
-  updatedAt       DateTime @updatedAt
+  id                    Int      @id @default(1)
+  supportPhone          String   @default("972500000000")
+  maintenanceMode       Boolean  @default(false)
+  launchFreezeMode      Boolean  @default(false)
+  defaultBusinessStatus String   @default("TRIAL")
+  defaultTrialDays      Int      @default(14)
+  updatedAt             DateTime @updatedAt
 }
+
 
 // יומן גבייה ותשלומים של הפלטפורמה מבעלי עסקים
 model PlatformPayment {
