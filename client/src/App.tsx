@@ -1,9 +1,52 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import AppRouter from './router/appRouter';
 import { GlobalAlertModal } from './components/common/GlobalAlertModal';
 import { InstallPromptBanner } from './components/common/InstallPromptBanner';
 
 const App: React.FC = () => {
+  useEffect(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#2563eb';
+      ctx.beginPath();
+      ctx.roundRect(0, 0, 64, 64, 16);
+      ctx.fill();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeRect(16, 20, 32, 28);
+      ctx.beginPath();
+      ctx.moveTo(16, 29);
+      ctx.lineTo(48, 29);
+      ctx.moveTo(24, 14);
+      ctx.lineTo(24, 22);
+      ctx.moveTo(40, 14);
+      ctx.lineTo(40, 22);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#93c5fd';
+      ctx.beginPath();
+      ctx.moveTo(26, 38);
+      ctx.lineTo(30, 42);
+      ctx.lineTo(38, 34);
+      ctx.stroke();
+
+      const pngUrl = canvas.toDataURL('image/png');
+      let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.type = 'image/png';
+      link.href = pngUrl;
+    }
+  }, []);
   return (
     <div className="min-h-screen bg-gray-50 text-right font-sans antialiased text-gray-900 flex flex-col" dir="rtl">
       <div className="flex-1 flex flex-col">
