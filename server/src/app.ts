@@ -50,7 +50,7 @@ const corsOptions: cors.CorsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
