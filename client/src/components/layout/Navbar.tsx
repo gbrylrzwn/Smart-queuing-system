@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import axiosClient from '../../api/axiosClient';
 import { registerBiometricPasskey } from '../../utils/passkeyHelper';
 import { SmartQueueLogo } from '../common/SmartQueueLogo';
+import { SmartQueueAssistant } from '../common/SmartQueueAssistant';
 
 const Navbar: React.FC = () => {
     const { user, logout } = useAuth();
@@ -12,6 +13,8 @@ const Navbar: React.FC = () => {
     const isBusinessPage = /^\/business\/\d+/.test(location.pathname);
 
     const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+    const [isAiOpen, setIsAiOpen] = useState<boolean>(false);
+
     const [isShareOpen, setIsShareOpen] = useState<boolean>(false);
 
     const [deleteStep, setDeleteStep] = useState<'NONE' | 'BUSINESS_CONFIRM' | 'SMS_SENT' | 'ACCOUNT_CONFIRM'>('NONE');
@@ -428,7 +431,7 @@ const Navbar: React.FC = () => {
                                     </button>
                                 )}
 
-                                
+
 
 
                                 {user?.role === 'SUPER_ADMIN' && (
@@ -467,6 +470,21 @@ const Navbar: React.FC = () => {
                                             <path d="M16 2v4M8 2v4M3 10h18" />
                                         </svg>
                                         <span>סנכרון ליומן Google</span>
+                                    </button>
+                                )}
+                                {user?.role !== 'SUPER_ADMIN' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsDrawerOpen(false);
+                                            setIsAiOpen(true);
+                                        }}
+                                        className="w-full text-right px-4 py-3 text-sm font-bold text-blue-700 bg-blue-50/80 hover:bg-blue-100/80 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
+                                    >
+                                        <svg className="w-4 h-4 text-blue-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                        </svg>
+                                        <span>עוזר חכם (AI)</span>
                                     </button>
                                 )}
 
@@ -600,6 +618,8 @@ const Navbar: React.FC = () => {
                     )}
                 </div>
             </div>
+            <SmartQueueAssistant isOpen={isAiOpen} onClose={() => setIsAiOpen(false)} />
+
         </>
     );
 };

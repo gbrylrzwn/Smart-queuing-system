@@ -2,7 +2,6 @@ import React from 'react';
 import AppRouter from './router/appRouter';
 import { GlobalAlertModal } from './components/common/GlobalAlertModal';
 import { InstallPromptBanner } from './components/common/InstallPromptBanner';
-import { SmartQueueAssistant } from './components/common/SmartQueueAssistant';
 
 const App: React.FC = () => {
   return (
@@ -29,7 +28,6 @@ const App: React.FC = () => {
 
       <GlobalAlertModal />
       <InstallPromptBanner />
-      <SmartQueueAssistant />
     </div>
   );
 };
