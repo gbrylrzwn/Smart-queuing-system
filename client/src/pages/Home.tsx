@@ -60,22 +60,25 @@ const Home: React.FC = () => {
       };
 
       recognition.onresult = (event: any) => {
-        let spoken = '';
-        if (event && event.results) {
-          for (let i = 0; i < event.results.length; i++) {
-            const resItem = event.results.item(i);
-            const alt = resItem && resItem.item(0);
-            const textPart = (alt && alt.transcript) || '';
-            spoken += textPart + ' ';
+        try {
+          const resultsArray: any[] = Array.from(event?.results || []);
+          const spoken = resultsArray
+            .map((res: any) => {
+              const alternatives: any[] = Array.from(res || []);
+              const firstAlt = alternatives.at(0);
+              return firstAlt && typeof firstAlt.transcript === 'string'
+                ? firstAlt.transcript
+                : '';
+            })
+            .join(' ')
+            .trim();
+
+          if (spoken && spoken.toLowerCase() !== 'undefined') {
+            setSearchTerm(spoken);
+            setActiveSearchTerm(spoken);
+            setShowSuggestions(false);
           }
-        }
-        const cleanText = spoken.trim();
-        if (cleanText && cleanText.toLowerCase() !== 'undefined') {
-          setSearchTerm(cleanText);
-          setActiveSearchTerm(cleanText);
-          setActiveCategory(selectedCategory);
-          setShowSuggestions(false);
-        }
+        } catch {}
       };
 
       recognition.onerror = (event: any) => {
@@ -96,6 +99,7 @@ const Home: React.FC = () => {
       alert('לא ניתן היה להפעיל את המיקרופון במכשיר זה.');
     }
   };
+
 
 
   const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
