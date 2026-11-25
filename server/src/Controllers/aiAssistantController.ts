@@ -168,3 +168,4 @@ ${userAppointmentsContext}
     res.status(500).json({ error: 'אירעה שגיאה בעיבוד השאלה.' });
   }
 };
+export const askAssistant = askAiAssistant;
