@@ -17,7 +17,8 @@ const extractOptionalUserId = (req: Request): number | null => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.split(' ').at(1);
+    if (!token) return null;
     const secret = process.env.JWT_SECRET || 'smartqueue_secret_key';
     const decoded: any = jwt.verify(token, secret);
     return Number(decoded?.id || decoded?.userId) || null;
@@ -51,29 +52,21 @@ export const askAiAssistant = async (req: Request, res: Response): Promise<void>
     const currentPath = String(req.body?.currentPath || '/');
     const rawHistory = Array.isArray(req.body?.history) ? req.body.history.slice(-8) : [];
 
-    // שליפת מידע ציבורי חי של העסקים, השירותים ושעות הפעילות
-    const businesses = await prisma.business.findMany({
+    const businesses: any[] = await prisma.business.findMany({
       where: { subscriptionStatus: { not: 'SUSPENDED' } },
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        address: true,
-        description: true,
+      include: {
         services: {
           select: { name: true, price: true, durationMinutes: true },
         },
-        workingHours: {
-          select: { dayOfWeek: true, openTime: true, closeTime: true, isClosed: true },
-        },
+        workingHours: true,
       },
       take: 30,
     });
-    // שליפת תורים אישיים אך ורק של המשתמש המחובר עצמו (בידוד פרטיות מוחלט)
+
     let userAppointmentsContext = 'המשתמש אינו מחובר כרגע לחשבון.';
     if (userId) {
       const now = new Date();
-      const myApps = await prisma.appointment.findMany({
+      const myApps: any[] = await prisma.appointment.findMany({
         where: {
           clientId: userId,
           status: { in: ['CONFIRMED', 'PENDING'] },
@@ -90,12 +83,12 @@ export const askAiAssistant = async (req: Request, res: Response): Promise<void>
       userAppointmentsContext =
         myApps.length > 0
           ? JSON.stringify(
-              myApps.map((a) => ({
-                business: a.business.name,
-                address: a.business.address,
-                service: a.service.name,
-                price: a.service.price,
-                date: a.date.toISOString().split('T')[0],
+              myApps.map((a: any) => ({
+                business: a.business?.name,
+                address: a.business?.address,
+                service: a.service?.name,
+                price: a.service?.price,
+                date: a.date instanceof Date ? a.date.toISOString().split('T').at(0) : a.date,
                 time: `${a.startTime}-${a.endTime}`,
                 staff: a.staffName || 'ללא העדפה',
                 status: a.status,
@@ -104,13 +97,12 @@ export const askAiAssistant = async (req: Request, res: Response): Promise<void>
           : 'למשתמש המחובר אין תורים עתידיים פעילים כרגע.';
     }
 
-    const businessesSummary = businesses.map((b) => ({
+    const businessesSummary = businesses.map((b: any) => ({
       name: b.name,
       category: CATEGORY_LABELS[b.category] || b.category,
       address: b.address,
-      description: b.description || '',
-      services: b.services,
-      workingHours: b.workingHours,
+      services: b.services || [],
+      workingHours: b.workingHours || [],
     }));
 
     const systemInstruction = `
@@ -137,10 +129,8 @@ ${userAppointmentsContext}
       parts: [{ text: String(m.text || '') }],
     }));
 
-    if (
-      conversationContents.length === 0 ||
-      conversationContents[conversationContents.length - 1].parts[0].text !== rawQuestion
-    ) {
+    const lastMsg = conversationContents.at(-1);
+    if (!lastMsg || lastMsg.parts.at(0)?.text !== rawQuestion) {
       conversationContents.push({
         role: 'user',
         parts: [{ text: rawQuestion }],
@@ -169,7 +159,7 @@ ${userAppointmentsContext}
     }
 
     const answer =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+      data?.candidates?.at(0)?.content?.parts?.at(0)?.text?.trim() ||
       'לא הצלחתי לנסח תשובה כרגע, אנא נסה לשאול שוב.';
 
     res.json({ answer });
