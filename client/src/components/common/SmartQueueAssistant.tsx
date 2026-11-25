@@ -21,6 +21,7 @@ const QUICK_QUESTIONS = [
 export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen, onClose }) => {
   const [question, setQuestion] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [minimized, setMinimized] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       sender: 'ASSISTANT',
@@ -31,8 +32,10 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    if (!minimized) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, loading, minimized]);
 
   if (!isOpen) return null;
 
@@ -44,6 +47,7 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
     setMessages(updatedHistory);
     setQuestion('');
     setLoading(true);
+    setMinimized(false);
 
     try {
       const res = await axiosClient.post('/ai/assistant', {
@@ -70,107 +74,122 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
 
   return (
     <div
-      className="fixed bottom-4 left-4 right-4 sm:right-auto sm:w-[360px] z-40 pointer-events-auto"
+      className="fixed bottom-3 left-3 z-40 w-[calc(100vw-1.5rem)] max-w-[330px] pointer-events-auto"
       dir="rtl"
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-3 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-3.5 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center">
               <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
               </svg>
             </div>
             <div>
               <p className="text-xs font-black">העוזר החכם של SmartQueue</p>
-              <p className="text-[10px] text-blue-100">זמין בזמן אמת במקביל לגלישה</p>
+              <p className="text-[10px] text-blue-100">מופעל על ידי Gemini AI</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {!minimized && (
+              <button
+                type="button"
+                title="נקה שיחה"
+                onClick={() =>
+                  setMessages([
+                    {
+                      sender: 'ASSISTANT',
+                      text: 'השיחה נוקתה. במה אוכל לעזור לך עכשיו?',
+                    },
+                  ])
+                }
+                className="px-2 h-6 rounded-md bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
+              >
+                נקה
+              </button>
+            )}
             <button
               type="button"
-              title="נקה שיחה"
-              onClick={() =>
-                setMessages([
-                  {
-                    sender: 'ASSISTANT',
-                    text: 'השיחה נוקתה. במה אוכל לעזור לך עכשיו?',
-                  },
-                ])
-              }
-              className="px-2 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
+              title={minimized ? 'הרחב חלונית' : 'מזער חלונית'}
+              onClick={() => setMinimized((prev) => !prev)}
+              className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs font-black flex items-center justify-center cursor-pointer"
             >
-              נקה
+              {minimized ? '+' : '−'}
             </button>
             <button
               type="button"
+              title="סגור"
               onClick={onClose}
-              className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center cursor-pointer"
+              className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center cursor-pointer"
             >
               ✕
             </button>
           </div>
         </div>
 
-        <div className="p-3 h-64 overflow-y-auto space-y-2.5 bg-slate-50/70">
-          {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={`flex ${msg.sender === 'USER' ? 'justify-start' : 'justify-end'}`}
-            >
-              <div
-                className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed whitespace-pre-line ${
-                  msg.sender === 'USER'
-                    ? 'bg-blue-600 text-white font-semibold rounded-tr-sm'
-                    : 'bg-white text-slate-800 border border-slate-200 shadow-xs rounded-tl-sm'
-                }`}
-              >
-                {msg.text}
-              </div>
+        {!minimized && (
+          <>
+            <div className="p-2.5 h-44 overflow-y-auto space-y-2 bg-slate-50/70">
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${msg.sender === 'USER' ? 'justify-start' : 'justify-end'}`}
+                >
+                  <div
+                    className={`max-w-[85%] px-3 py-1.5 rounded-2xl text-xs leading-relaxed whitespace-pre-line ${
+                      msg.sender === 'USER'
+                        ? 'bg-blue-600 text-white font-semibold rounded-tr-sm'
+                        : 'bg-white text-slate-800 border border-slate-200 shadow-xs rounded-tl-sm'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="text-[11px] text-slate-400 font-bold text-left">בודק נתונים...</div>
+              )}
+              <div ref={bottomRef} />
             </div>
-          ))}
-          {loading && (
-            <div className="text-[11px] text-slate-400 font-bold text-left">בודק נתונים...</div>
-          )}
-          <div ref={bottomRef} />
-        </div>
 
-        <div className="px-2.5 py-1.5 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto">
-          {QUICK_QUESTIONS.map((qText) => (
-            <button
-              key={qText}
-              type="button"
-              onClick={() => sendQuestion(qText)}
-              className="px-2 py-1 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-full text-[10px] font-bold whitespace-nowrap transition-colors cursor-pointer"
+            <div className="px-2 py-1.5 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto">
+              {QUICK_QUESTIONS.map((qText) => (
+                <button
+                  key={qText}
+                  type="button"
+                  onClick={() => sendQuestion(qText)}
+                  className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-full text-[10px] font-bold whitespace-nowrap transition-colors cursor-pointer"
+                >
+                  {qText}
+                </button>
+              ))}
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendQuestion(question);
+              }}
+              className="p-2 bg-white border-t border-slate-100 flex items-center gap-1.5"
             >
-              {qText}
-            </button>
-          ))}
-        </div>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendQuestion(question);
-          }}
-          className="p-2.5 bg-white border-t border-slate-100 flex items-center gap-2"
-        >
-          <input
-            type="text"
-            maxLength={350}
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="שאל כל שאלה על העסקים או התורים..."
-            className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500"
-          />
-          <button
-            type="submit"
-            disabled={!question.trim() || loading}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-xs font-black rounded-xl transition-colors cursor-pointer"
-          >
-            שלח
-          </button>
-        </form>
+              <input
+                type="text"
+                maxLength={350}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="שאל כל שאלה על העסקים או התורים..."
+                className="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500"
+              />
+              <button
+                type="submit"
+                disabled={!question.trim() || loading}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-xs font-black rounded-xl transition-colors cursor-pointer"
+              >
+                שלח
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

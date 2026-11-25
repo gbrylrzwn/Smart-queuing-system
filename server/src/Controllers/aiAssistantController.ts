@@ -169,3 +169,8 @@ ${userAppointmentsContext}
   }
 };
 export const askAssistant = askAiAssistant;
+export default { askAssistant: askAiAssistant, askAiAssistant };
+export const AiAssistantController = {
+    askAssistant: askAiAssistant,
+  };
+  

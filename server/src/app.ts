@@ -21,8 +21,10 @@ import crmRoutes from './Routes/crmRoutes';
 import passkeyRoutes from './Routes/passkeyRoutes';
 import aiRoutes from './Routes/aiRoutes';
 import invoiceRoutes from './Routes/invoiceRoutes';
+import path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-dotenv.config();
 
 const app: Application = express();
 
