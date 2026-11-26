@@ -6,95 +6,69 @@ export class NotificationService {
   /**
    * שליחת הודעת SMS אמיתית לסמארטפון של הלקוח ומחזירה true רק אם הספק אישר שליחה
    */
+  private static verifyIsraeliProviderResponse(rawBody: string): boolean {
+    const trimmed = rawBody.trim();
+    if (!trimmed) return false;
+    try {
+      const json = JSON.parse(trimmed);
+      if (json.status !== undefined && Number(json.status) !== 0 && Number(json.status) !== 200 && json.status !== 'ok' && json.status !== 'success') return false;
+      if (json.error || json.err || json.success === false) return false;
+      return true;
+    } catch {
+      const lower = trimmed.toLowerCase();
+      if (lower.includes('<status>-') || lower.includes('error') || lower.includes('invalid')) return false;
+      return true;
+    }
+  }
+  //שליחת הודעה חיצונית
   public static async sendExternalMessage(phone: string, text: string): Promise<boolean> {
-    if (!phone) return false;
+    if (!phone || !text.trim()) return false;
 
     const digitsOnly = phone.replace(/[^0-9]/g, '');
     if (digitsOnly.length < 9) return false;
 
-    const intlPhone = digitsOnly.startsWith('0') ? `972${digitsOnly.slice(1)}` : digitsOnly;
     const localPhone = digitsOnly.startsWith('972') ? `0${digitsOnly.slice(3)}` : digitsOnly;
-    const e164Phone = `+${intlPhone}`;
-    const senderName = process.env.SMS_SENDER_NAME || 'SmartQueue';
+    const senderName = process.env.SMS4FREE_SENDER || process.env.SMS_SENDER_NAME || 'SmartQueue';
 
-    // 1. שליחת SMS אמיתית דרך Twilio (בינלאומי + ישראל)
-    const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-    const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-    const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
+    const apiKey = process.env.SMS4FREE_API_KEY;
+    const apiUser = process.env.SMS4FREE_USER;
+    const apiPass = process.env.SMS4FREE_PASS;
 
-    if (twilioSid && twilioToken && twilioFrom) {
-      try {
-        const authHeader = Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64');
-        const formData = new URLSearchParams();
-        formData.append('To', e164Phone);
-        formData.append('From', twilioFrom);
-        formData.append('Body', text);
-
-        const resp = await fetch(
-          `https://twilio.com{twilioSid}/Messages.json`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Basic ${authHeader}`,
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: formData.toString(),
-          }
-        );
-
-        const data: any = await resp.json().catch(() => ({}));
-        if (resp.ok) {
-          console.log(`✅ [Twilio SMS נשלח בהצלחה אל ${e164Phone} | SID: ${data?.sid || 'OK'}]`);
-          return true;
-        }
-        console.error('❌ שגיאת Twilio SMS:', data?.message || resp.statusText);
-        return false;
-      } catch (err) {
-        console.error('❌ שגיאת תקשורת מול Twilio:', err);
-        return false;
-      }
-    }
-    // 2. שליחת SMS אמיתית דרך ספק SMS ישראלי / Webhook מסחרי
-    const webhookUrl = process.env.SMS_WEBHOOK_URL;
-    const apiKey = process.env.SMS_API_KEY;
-    const apiUser = process.env.SMS_API_USER || '';
-
-    if (webhookUrl && apiKey) {
-      try {
-        const resp = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            key: apiKey,
-            user: apiUser,
-            sender: senderName,
-            recipient: localPhone,
-            to: e164Phone,
-            phone: localPhone,
-            msg: text,
-            message: text,
-          }),
-        });
-
-        if (resp.ok) {
-          console.log(`✅ [SMS מסחרי נשלח בהצלחה אל ${localPhone} דרך ${senderName}]`);
-          return true;
-        }
-        const errBody = await resp.text();
-        console.error('❌ שגיאת ספק SMS ישראלי:', errBody);
-        return false;
-      } catch (err) {
-        console.error('❌ שגיאת תקשורת מול ספק SMS:', err);
-        return false;
-      }
+    if (!apiKey || !apiUser || !apiPass) {
+      console.warn(`⚠️ [SMS לא נשלח אל ${localPhone}]: חסרים משתני סביבה של SMS4FREE.`);
+      return false;
     }
 
-    console.warn(`⚠️ [SMS לא נשלח בפועל אל ${localPhone}]: טרם הוגדרו מפתחות ספק SMS ב-Environment.`);
-    return false;
+    try {
+      const endpoint = ['https:/', 'api.sms4free.co.il', 'ApiSMS', 'v2', 'SendSMS'].join('/');
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: apiKey,
+          user: apiUser,
+          pass: apiPass,
+          sender: senderName,
+          recipient: localPhone,
+          msg: text,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const data: any = await resp.json().catch(() => null);
+      if (resp.ok && Number(data?.status) > 0) {
+        console.log(`✅ [SMS4FREE נשלח בהצלחה אל ${localPhone} | נמענים: ${data.status}]`);
+        return true;
+      }
+
+      console.error(`❌ שגיאת SMS4FREE (קוד ${data?.status ?? resp.status}):`, data?.message || resp.statusText);
+      return false;
+    } catch (err) {
+      console.error('❌ שגיאת תקשורת מול SMS4FREE:', err);
+      return false;
+    }
   }
+
 
   private static async sendEmailMessage(toEmail: string, subject: string, text: string): Promise<void> {
     if (!toEmail) return;

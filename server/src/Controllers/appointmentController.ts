@@ -394,6 +394,11 @@ export class AppointmentController {
         startTime: String(startTime)
       });
 
+      await GoogleCalendarController.syncAppointmentToGoogle(business.id, {
+        ...newAppointment,
+        client: clientUser,
+      });
+
       res.status(201).json({
         message: 'התור הידני שוריין בהצלחה ביומן!',
         appointment: newAppointment
@@ -447,14 +452,26 @@ export class AppointmentController {
       });
 
       const ownerUser = await prisma.user.findUnique({ where: { id: appointment.business.ownerId } });
+      const dateStr = new Date(appointment.date).toLocaleDateString('he-IL');
       if (ownerUser) {
-        const dateStr = new Date(appointment.date).toLocaleDateString('he-IL');
         await NotificationService.notifyUser({
           userId: ownerUser.id,
           businessId: appointment.businessId,
           phone: ownerUser.phone,
           title: '⚠️ תור בוטל ביומן',
           message: `הלקוח/ה ${appointment.client?.name || ''} ביטל/ה את התור ל-${appointment.service?.name || 'טיפול'} בתאריך ${dateStr} בשעה ${appointment.startTime}. השעה התפנתה מחדש.`,
+          type: 'CANCEL'
+        });
+      }
+
+      if (appointment.client) {
+        await NotificationService.notifyUser({
+          userId: appointment.client.id,
+          businessId: appointment.businessId,
+          phone: appointment.client.phone,
+          email: appointment.client.email,
+          title: '❌ התור שלך בוטל',
+          message: `התור שלך ב-${appointment.business.name} ל-${appointment.service?.name || 'טיפול'} בתאריך ${dateStr} בשעה ${appointment.startTime} בוטל בהצלחה. המשבצת שוחררה ביומן.`,
           type: 'CANCEL'
         });
       }
@@ -575,10 +592,12 @@ export class AppointmentController {
         return;
       }
 
+      await AppointmentController.autoCompletePastAppointments({ clientId });
+
       const appointments = await prisma.appointment.findMany({
-        where: { 
+        where: {
           clientId: clientId,
-          status: { in: ['CONFIRMED', 'PENDING'] }
+          status: { in: ['CONFIRMED', 'PENDING', 'PAID', 'CANCELED'] }
         },
         include: {
           business: {
@@ -602,7 +621,22 @@ export class AppointmentController {
       });
 
       const enrichedAppointments = await AppointmentController.enrichMultiServiceAppointments(appointments);
-      res.status(200).json({ appointments: enrichedAppointments });
+      const now = new Date();
+      const isPastDue = (app: { date: Date; endTime: string | null }) => {
+        const appEnd = new Date(app.date);
+        const [endH, endM] = (app.endTime || '23:59').split(':').map(Number);
+        appEnd.setHours(endH, endM, 0, 0);
+        return appEnd.getTime() <= now.getTime();
+      };
+
+      const active = enrichedAppointments.filter(
+        (app) => (app.status === 'CONFIRMED' || app.status === 'PENDING') && !isPastDue(app)
+      );
+      const history = enrichedAppointments.filter(
+        (app) => app.status === 'PAID' || app.status === 'CANCELED' || isPastDue(app)
+      );
+
+      res.status(200).json({ appointments: enrichedAppointments, active, history });
     } catch (error) {
       next(error);
     }
@@ -747,8 +781,8 @@ export class AppointmentController {
       const totalMin = h * 60 + m + duration;
       const endTime = `${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`;
 
-      await prisma.$transaction(async (tx) => {
-        await tx.appointment.create({
+      const createdAppointment = await prisma.$transaction(async (tx) => {
+        const appointment = await tx.appointment.create({
           data: {
             businessId: waitlistItem.businessId,
             clientId: waitlistItem.clientId,
@@ -764,6 +798,15 @@ export class AppointmentController {
         await txDb.waitlist.delete({
           where: { id: waitlistId }
         });
+
+        return appointment;
+      });
+
+      const waitlistClient = await prisma.user.findUnique({ where: { id: waitlistItem.clientId } });
+      await GoogleCalendarController.syncAppointmentToGoogle(waitlistItem.businessId, {
+        ...createdAppointment,
+        client: waitlistClient,
+        service,
       });
 
       res.status(200).json({ message: 'הלקוח שובץ בהצלחה בתור הפנוי הראשון בבוקר.' });
@@ -940,12 +983,19 @@ export class AppointmentController {
     }
   }
 
-  private static async autoCompletePastAppointments(businessId: number): Promise<void> {
+  private static async autoCompletePastAppointments(
+    businessIdOrScope: number | { businessId?: number; clientId?: number }
+  ): Promise<void> {
+    const scope = typeof businessIdOrScope === 'number'
+      ? { businessId: businessIdOrScope }
+      : businessIdOrScope;
+
     const now = new Date();
     const confirmedApps = await prisma.appointment.findMany({
       where: {
-        businessId,
-        status: 'CONFIRMED'
+        status: 'CONFIRMED',
+        ...(scope.businessId ? { businessId: scope.businessId } : {}),
+        ...(scope.clientId ? { clientId: scope.clientId } : {}),
       }
     });
 
@@ -1115,6 +1165,11 @@ export class AppointmentController {
         staffId: staffId ? Number(staffId) : null,
         dateStr: String(date),
         startTime: String(startTime)
+      });
+
+      await GoogleCalendarController.syncAppointmentToGoogle(Number(businessId), {
+        ...newAppointment,
+        client: clientUser,
       });
 
       const ownerUser = await prisma.user.findUnique({ where: { id: newAppointment.business.ownerId } });

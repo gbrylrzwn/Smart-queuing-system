@@ -12,6 +12,7 @@ const MyAppointments: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [appToCancel, setAppToCancel] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
 
   const fetchMyAppointments = async () => {
     try {
@@ -93,8 +94,30 @@ const MyAppointments: React.FC = () => {
     const details = `איש צוות: ${app.staffName || 'צוות העסק'} | נקבע דרך SmartQueue`;
     const location = app.business?.address || '';
 
-    return `https://google.com{encodeURIComponent(title)}&dates=${startFormatted}/${endFormatted}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
+    const base = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
+    return `${base}&text=${encodeURIComponent(title)}&dates=${startFormatted}/${endFormatted}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}&ctz=Asia/Jerusalem`;
   };
+
+  const isAppointmentExpired = (app: any) => {
+    const end = new Date(app.date);
+    const [endH, endM] = (app.endTime || '23:59').split(':').map(Number);
+    end.setHours(endH, endM, 0, 0);
+    return end.getTime() <= Date.now();
+  };
+
+  const isHistoryAppointment = (app: any) =>
+    app.status === 'CANCELED' || app.status === 'PAID' || isAppointmentExpired(app);
+
+  const visibleAppointments = appointments
+    .filter((app) => (activeTab === 'history' ? isHistoryAppointment(app) : !isHistoryAppointment(app)))
+    .sort((a, b) => {
+      const aTime = new Date(a.date).getTime();
+      const bTime = new Date(b.date).getTime();
+      if (aTime !== bTime) return activeTab === 'history' ? bTime - aTime : aTime - bTime;
+      const aStart = String(a.startTime || '');
+      const bStart = String(b.startTime || '');
+      return activeTab === 'history' ? bStart.localeCompare(aStart) : aStart.localeCompare(bStart);
+    });
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans relative" dir="rtl">
@@ -109,28 +132,62 @@ const MyAppointments: React.FC = () => {
           ➔
         </button>
 
-        <div className="w-full text-right mb-6 pr-2" dir="rtl">
+        <div className="w-full text-right mb-5 pr-2" dir="rtl">
           <h2 className="text-xl font-black text-gray-900 text-right">התורים שלי</h2>
-          <p className="text-xs text-gray-400 font-semibold mt-0.5 text-right">רשימת התורים והטיפולים הפעילים שלך</p>
+          <p className="text-xs text-gray-400 font-semibold mt-0.5 text-right">תורים פעילים והיסטוריית טיפולים</p>
+        </div>
+
+        <div className="w-full mb-5 grid grid-cols-2 gap-1 p-1 bg-white border border-gray-100 rounded-2xl shadow-sm" dir="rtl" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'active'}
+            onClick={() => setActiveTab('active')}
+            className={`py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              activeTab === 'active'
+                ? 'bg-gray-900 text-white shadow-sm'
+                : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            תורים פעילים
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'history'}
+            onClick={() => setActiveTab('history')}
+            className={`py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              activeTab === 'history'
+                ? 'bg-gray-900 text-white shadow-sm'
+                : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            היסטוריית תורים
+          </button>
         </div>
 
         {error && <div className="mb-6 w-full p-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-xs font-bold text-right" dir="rtl">{error}</div>}
 
         {loading ? (
           <div className="text-center py-12 text-xs font-bold text-gray-400 animate-pulse">טוען את התורים שלך...</div>
-        ) : appointments.length === 0 ? (
+        ) : visibleAppointments.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm p-8 w-full" dir="rtl">
-            <span className="text-4xl block mb-3 text-center">📱</span>
-            <h4 className="text-sm font-bold text-gray-700 text-center">אין לך תורים עתידיים</h4>
-            <p className="text-xs text-gray-400 max-w-xs mx-auto mt-1 leading-relaxed text-center">כל התורים שתזמין באפליקציה יופיעו וינוהלו ישירות מתוך מסך זה.</p>
+            <span className="text-4xl block mb-3 text-center">{activeTab === 'history' ? '🗂️' : '📱'}</span>
+            <h4 className="text-sm font-bold text-gray-700 text-center">
+              {activeTab === 'history' ? 'אין עדיין היסטוריית תורים' : 'אין לך תורים עתידיים'}
+            </h4>
+            <p className="text-xs text-gray-400 max-w-xs mx-auto mt-1 leading-relaxed text-center">
+              {activeTab === 'history'
+                ? 'תורים שבוטלו, שולמו או שמועדם עבר יופיעו כאן.'
+                : 'כל התורים שתזמין באפליקציה יופיעו וינוהלו ישירות מתוך מסך זה.'}
+            </p>
           </div>
         ) : (
           <div className="space-y-4 w-full" dir="rtl">
-            {appointments.map((app) => {
+            {visibleAppointments.map((app) => {
               const appDate = new Date(app.date).toLocaleDateString('he-IL');
               const isCanceled = app.status === 'CANCELED';
-              const isPaid = app.status === 'PAID';
-              const isHistory = isCanceled || isPaid; 
+              const isHistory = isHistoryAppointment(app); 
               const addressQuery = app.business?.address ? encodeURIComponent(app.business.address) : '';
               const wazeUrl = `https://waze.com{addressQuery}&navigate=yes`;
               
