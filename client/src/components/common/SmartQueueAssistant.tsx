@@ -34,8 +34,13 @@ const ADMIN_QUESTIONS = [
 
 export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
-  const isOwner = user?.role === 'BUSINESS_OWNER';
-  const isAdmin = user?.role === 'SUPER_ADMIN';
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const isOwner =
+    user?.role === 'BUSINESS_OWNER' ||
+    ['/dashboard', '/business-home', '/business-invoices', '/financial-analytics'].some((p) =>
+      currentPath.startsWith(p)
+    );
+  const isAdmin = user?.role === 'SUPER_ADMIN' || currentPath.startsWith('/admin');
 
   const quickQuestions = isAdmin
     ? ADMIN_QUESTIONS
@@ -44,14 +49,15 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
     : CLIENT_QUESTIONS;
 
   const welcomeMessage = isAdmin
-    ? 'שלום מנהל המערכת! אני העוזר החכם של SmartQueue. אפשר לשאול אותי על נתוני הפלטפורמה, עסקים רשומים, מנויים ותפעול המערכת.'
+    ? 'שלום מנהל המערכת! אפשר לשאול אותי על נתוני הפלטפורמה, עסקים רשומים, מנויים ותפעול המערכת.'
     : isOwner
-    ? 'שלום! אני היועץ העסקי החכם שלך. אפשר לבקש ממני לנסח הודעות שיווק בוואטסאפ ללקוחות, לנתח את היומן וההכנסות שלך או לקבל רעיונות להגדלת התפוסה.'
+    ? 'שלום! אני היועץ העסקי החכם שלך. אפשר לבקש ממני לנסח הודעות שיווק בוואטסאפ, לנתח את היומן וההכנסות שלך או לקבל רעיונות להגדלת התפוסה.'
     : 'שלום! אני העוזר החכם של SmartQueue. אפשר לשאול אותי על עסקים, מחירים, זמינות, התורים שלך או תפעול האפליקציה.';
 
   const [question, setQuestion] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [minimized, setMinimized] = useState<boolean>(false);
+  const [expanded, setExpanded] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { sender: 'ASSISTANT', text: welcomeMessage },
   ]);
@@ -60,7 +66,7 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
 
   useEffect(() => {
     setMessages([{ sender: 'ASSISTANT', text: welcomeMessage }]);
-  }, [user?.role]);
+  }, [isOwner, isAdmin]);
 
   useEffect(() => {
     if (!minimized) {
@@ -83,7 +89,7 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
     try {
       const res = await axiosClient.post('/ai/assistant', {
         question: clean,
-        history: updatedHistory.slice(-8),
+        history: updatedHistory.slice(-6),
         currentPath: window.location.pathname,
       });
       setMessages((prev) => [
@@ -102,10 +108,13 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
       setLoading(false);
     }
   };
-
   return (
     <div
-      className="fixed bottom-3 left-3 z-40 w-[calc(100vw-1.5rem)] max-w-[340px] pointer-events-auto"
+      className={`fixed bottom-3 left-3 z-40 transition-all duration-200 pointer-events-auto ${
+        expanded
+          ? 'w-[calc(100vw-1.5rem)] max-w-[520px]'
+          : 'w-[calc(100vw-1.5rem)] max-w-[340px]'
+      }`}
       dir="rtl"
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
@@ -118,28 +127,33 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
             </div>
             <div>
               <p className="text-xs font-black">
-                {isOwner ? 'היועץ העסקי החכם' : 'העוזר החכם של SmartQueue'}
+                {isAdmin ? 'עוזר מנהל המערכת' : isOwner ? 'היועץ העסקי החכם' : 'העוזר החכם של SmartQueue'}
               </p>
               <p className="text-[10px] text-blue-100">מופעל על ידי Gemini AI</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
             {!minimized && (
-              <button
-                type="button"
-                title="נקה שיחה"
-                onClick={() =>
-                  setMessages([
-                    {
-                      sender: 'ASSISTANT',
-                      text: 'השיחה נוקתה. במה אוכל לעזור לך עכשיו?',
-                    },
-                  ])
-                }
-                className="px-2 h-6 rounded-md bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
-              >
-                נקה
-              </button>
+              <>
+                <button
+                  type="button"
+                  title="נקה שיחה"
+                  onClick={() =>
+                    setMessages([{ sender: 'ASSISTANT', text: 'השיחה נוקתה. במה אוכל לעזור לך עכשיו?' }])
+                  }
+                  className="px-2 h-6 rounded-md bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold cursor-pointer"
+                >
+                  נקה
+                </button>
+                <button
+                  type="button"
+                  title={expanded ? 'הקטן חלונית' : 'הגדל חלונית'}
+                  onClick={() => setExpanded((prev) => !prev)}
+                  className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center cursor-pointer"
+                >
+                  {expanded ? '⤡' : '⤢'}
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -162,30 +176,52 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
 
         {!minimized && (
           <>
-            <div className="p-2.5 h-48 overflow-y-auto space-y-2 bg-slate-50/70">
+            <div
+              className={`p-3 overflow-y-auto space-y-2.5 bg-slate-50/70 transition-all duration-200 ${
+                expanded ? 'h-80' : 'h-48'
+              }`}
+            >
               {messages.map((msg, idx) => (
                 <div
                   key={idx}
                   className={`flex ${msg.sender === 'USER' ? 'justify-start' : 'justify-end'}`}
                 >
                   <div
-                    className={`max-w-[85%] px-3 py-1.5 rounded-2xl text-xs leading-relaxed whitespace-pre-line ${
+                    className={`max-w-[88%] px-3 py-2 rounded-2xl leading-relaxed whitespace-pre-line ${
+                      expanded ? 'text-sm' : 'text-xs'
+                    } ${
                       msg.sender === 'USER'
                         ? 'bg-blue-600 text-white font-semibold rounded-tr-sm'
                         : 'bg-white text-slate-800 border border-slate-200 shadow-xs rounded-tl-sm'
                     }`}
                   >
                     {msg.text}
+                    {msg.sender === 'ASSISTANT' && idx > 0 && (
+                      <div className="mt-1.5 pt-1 border-t border-slate-100 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(msg.text);
+                            alert('התשובה הועתקה ללוח!');
+                          }}
+                          className="text-[10px] font-bold text-slate-400 hover:text-blue-600 cursor-pointer"
+                        >
+                          📋 העתק טקסט
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
               {loading && (
-                <div className="text-[11px] text-slate-400 font-bold text-left">מעבד נתונים...</div>
+                <div className="text-[11px] text-blue-600 font-bold text-left animate-pulse">
+                  מנסח תשובה מהירה...
+                </div>
               )}
               <div ref={bottomRef} />
             </div>
 
-            <div className="px-2 py-1.5 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto">
+            <div className="px-2.5 py-1.5 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto">
               {quickQuestions.map((qText) => (
                 <button
                   key={qText}

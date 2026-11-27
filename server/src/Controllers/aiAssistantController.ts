@@ -215,32 +215,13 @@ export const askAiAssistant = async (req: Request, res: Response): Promise<void>
 
     const domain = ['generativelanguage', 'googleapis', 'com'].join('.');
     const baseHost = `https://${domain}/v1beta`;
-
-    const modelsResp = await fetch(`${baseHost}/models?key=${encodeURIComponent(apiKey)}`);
-    const modelsData: any = await modelsResp.json().catch(() => ({}));
-
-    if (!modelsResp.ok) {
-      const msg = modelsData?.error?.message || `HTTP ${modelsResp.status}`;
-      res.status(502).json({ error: `שגיאת מפתח Gemini: ${msg}` });
-      return;
-    }
-
-    const availableModels: string[] = (modelsData?.models || [])
-      .filter(
-        (m: any) =>
-          Array.isArray(m.supportedGenerationMethods) &&
-          m.supportedGenerationMethods.includes('generateContent')
-      )
-      .map((m: any) => String(m.name || '').replace(/^models\//, ''))
-      .filter((name: string) => name.includes('gemini'));
-
-    availableModels.sort((a, b) => (b.includes('flash') ? 1 : 0) - (a.includes('flash') ? 1 : 0));
+    const fastModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
     let data: any = {};
     let succeeded = false;
-    let lastError = 'לא נמצאו מודלים זמינים במפתח';
+    let lastError = 'לא התקבלה תשובה מהמודל';
 
-    for (const modelName of availableModels) {
+    for (const modelName of fastModels) {
       const url = `${baseHost}/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const geminiResp = await fetch(url, {
         method: 'POST',
@@ -249,8 +230,8 @@ export const askAiAssistant = async (req: Request, res: Response): Promise<void>
           systemInstruction: { parts: [{ text: systemInstruction }] },
           contents: conversationContents,
           generationConfig: {
-            temperature: 0.6,
-            maxOutputTokens: 700,
+            temperature: 0.55,
+            maxOutputTokens: 550,
           },
         }),
       });
@@ -277,8 +258,4 @@ export const askAiAssistant = async (req: Request, res: Response): Promise<void>
     console.error('askAiAssistant error:', err);
     res.status(500).json({ error: `שגיאה פנימית: ${err?.message || 'שגיאה בעיבוד השאלה'}` });
   }
-};
-
-export const AiAssistantController = {
-  askAssistant: askAiAssistant,
 };
