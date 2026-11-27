@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axiosClient from '../../api/axiosClient';
-import { registerBiometricPasskey } from '../../utils/passkeyHelper';
+import { registerBiometricPasskey, getBiometricCapability, BiometricCapability } from '../../utils/passkeyHelper';
 import { SmartQueueLogo } from '../common/SmartQueueLogo';
 import { SmartQueueAssistant } from '../common/SmartQueueAssistant';
 
@@ -13,6 +13,15 @@ const Navbar: React.FC = () => {
     const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
     const [isShareOpen, setIsShareOpen] = useState<boolean>(false);
     const [isAiOpen, setIsAiOpen] = useState<boolean>(false);
+    const [biometricCap, setBiometricCap] = useState<BiometricCapability>({
+        supported: false,
+        label: '',
+    });
+
+    useEffect(() => {
+        getBiometricCapability().then(setBiometricCap);
+    }, []);
+
 
     const [deleteStep, setDeleteStep] = useState<'NONE' | 'BUSINESS_CONFIRM' | 'SMS_SENT' | 'ACCOUNT_CONFIRM'>('NONE');
     const [smsCode, setSmsCode] = useState<string>('');
@@ -281,11 +290,10 @@ const Navbar: React.FC = () => {
                             {user ? (
                                 <div className="flex items-center gap-3">
                                     <div
-                                        className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xs font-black shadow-md ${
-                                            user.role === 'SUPER_ADMIN'
+                                        className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xs font-black shadow-md ${user.role === 'SUPER_ADMIN'
                                                 ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 shadow-indigo-500/20'
                                                 : 'bg-gradient-to-tr from-blue-500 to-indigo-600 shadow-blue-500/20'
-                                        }`}
+                                            }`}
                                     >
                                         {user.role === 'SUPER_ADMIN' ? 'ADMIN' : user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                     </div>
@@ -531,8 +539,7 @@ const Navbar: React.FC = () => {
                                         <span>עוזר חכם (AI)</span>
                                     </button>
                                 )}
-
-                                {user && (
+                                {user && biometricCap.supported && (
                                     <button
                                         type="button"
                                         onClick={async () => {
@@ -541,9 +548,7 @@ const Navbar: React.FC = () => {
                                                 alert(msg);
                                                 setIsDrawerOpen(false);
                                             } catch (err: any) {
-                                                if (err?.name !== 'NotAllowedError') {
-                                                    alert(err?.response?.data?.error || 'לא ניתן היה להגדיר זיהוי ביומטרי במכשיר זה.');
-                                                }
+                                                alert(err?.message || 'לא ניתן היה להגדיר זיהוי ביומטרי במכשיר זה.');
                                             }
                                         }}
                                         className="w-full text-right px-4 py-3 text-sm font-bold text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/70 rounded-xl transition-all flex items-center gap-3 group cursor-pointer"
@@ -551,9 +556,10 @@ const Navbar: React.FC = () => {
                                         <svg className="w-4 h-4 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
                                         </svg>
-                                        <span>הפעל טביעת אצבע / זיהוי פנים</span>
+                                        <span>הפעל {biometricCap.label}</span>
                                     </button>
                                 )}
+
 
                                 <button
                                     type="button"
@@ -646,11 +652,10 @@ const Navbar: React.FC = () => {
                                     <button
                                         onClick={handleConfirmDeleteAccount}
                                         disabled={smsCode.length !== 4 || loadingAction}
-                                        className={`flex-1 font-bold text-xs py-2 rounded-xl text-white shadow-sm transition-all ${
-                                            smsCode.length === 4 && !loadingAction
+                                        className={`flex-1 font-bold text-xs py-2 rounded-xl text-white shadow-sm transition-all ${smsCode.length === 4 && !loadingAction
                                                 ? 'bg-red-600 hover:bg-red-700'
                                                 : 'bg-gray-300 cursor-not-allowed'
-                                        }`}
+                                            }`}
                                     >
                                         {loadingAction ? 'מוחק...' : 'מחק חשבון סופית'}
                                     </button>

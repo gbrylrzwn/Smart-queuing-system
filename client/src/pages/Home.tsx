@@ -31,6 +31,36 @@ const Home: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [filterByLocation, setFilterByLocation] = useState<boolean>(false);
   const [locationLoading, setLocationLoading] = useState<boolean>(false);
+  const voiceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopVoiceRecognition = React.useCallback(() => {
+    if (voiceTimeoutRef.current) {
+      clearTimeout(voiceTimeoutRef.current);
+      voiceTimeoutRef.current = null;
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  }, []);
+
+  React.useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) stopVoiceRecognition();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopVoiceRecognition();
+    };
+  }, [stopVoiceRecognition]);
+
   const handleVoiceSearch = () => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -40,11 +70,8 @@ const Home: React.FC = () => {
       return;
     }
 
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {}
-      setIsListening(false);
+    if (isListening || recognitionRef.current) {
+      stopVoiceRecognition();
       return;
     }
 
@@ -57,6 +84,10 @@ const Home: React.FC = () => {
 
       recognition.onstart = () => {
         setIsListening(true);
+        // כיבוי ושחרור אוטומטי של המיקרופון לאחר 8 שניות במובייל
+        voiceTimeoutRef.current = setTimeout(() => {
+          stopVoiceRecognition();
+        }, 8000);
       };
 
       recognition.onresult = (event: any) => {
@@ -78,27 +109,30 @@ const Home: React.FC = () => {
             setActiveSearchTerm(spoken);
             setShowSuggestions(false);
           }
-        } catch {}
+        } finally {
+          stopVoiceRecognition();
+        }
       };
 
       recognition.onerror = (event: any) => {
-        setIsListening(false);
+        stopVoiceRecognition();
         if (event?.error === 'not-allowed') {
           alert('הגישה למיקרופון חסומה. אנא אשר גישה למיקרופון בהגדרות הדפדפן.');
         }
       };
 
       recognition.onend = () => {
-        setIsListening(false);
+        stopVoiceRecognition();
       };
 
       recognitionRef.current = recognition;
       recognition.start();
     } catch {
-      setIsListening(false);
+      stopVoiceRecognition();
       alert('לא ניתן היה להפעיל את המיקרופון במכשיר זה.');
     }
   };
+
 
 
 

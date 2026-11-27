@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/layout/Navbar';
-import { loginWithBiometricPasskey } from '../utils/passkeyHelper';
+import { loginWithBiometricPasskey, getBiometricCapability, BiometricCapability } from '../utils/passkeyHelper';
 import { SmartQueueLogo } from '../components/common/SmartQueueLogo';
 
 const Login: React.FC = () => {
@@ -31,6 +31,15 @@ const Login: React.FC = () => {
 
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
+    const [biometricCap, setBiometricCap] = useState<BiometricCapability>({
+        supported: false,
+        label: '',
+    });
+
+    React.useEffect(() => {
+        getBiometricCapability().then(setBiometricCap);
+    }, []);
+
 
     const navigateAfterLogin = (user: any) => {
         setTimeout(() => {
@@ -150,53 +159,53 @@ const Login: React.FC = () => {
     const registerUrl = redirectPath
         ? `/register?redirect=${encodeURIComponent(redirectPath)}`
         : '/register';
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex flex-col font-sans" dir="rtl">
-                <Navbar />
-    
-                <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-                    <div className="max-w-md w-full bg-white/90 backdrop-blur-md p-8 rounded-2xl shadow-xl border border-white/50">
-                        <div className="flex justify-center mb-4">
-                            <SmartQueueLogo size="md" />
-                        </div>
-    
-                        <div className="text-center mb-6">
-                            <h2 className="text-2xl font-black text-gray-900 tracking-tight">
-                                {authMode === 'OTP'
-                                    ? 'כניסה מהירה לקביעת תור'
-                                    : authMode === 'FORGOT'
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex flex-col font-sans" dir="rtl">
+            <Navbar />
+
+            <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+                <div className="max-w-md w-full bg-white/90 backdrop-blur-md p-8 rounded-2xl shadow-xl border border-white/50">
+                    <div className="flex justify-center mb-4">
+                        <SmartQueueLogo size="md" />
+                    </div>
+
+                    <div className="text-center mb-6">
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+                            {authMode === 'OTP'
+                                ? 'כניסה מהירה לקביעת תור'
+                                : authMode === 'FORGOT'
                                     ? 'שחזור ואיפוס סיסמה'
                                     : 'ברוך הבא למערכת'}
-                            </h2>
-                            {authMode === 'PASSWORD' && (
-                                <p className="mt-1.5 text-xs text-gray-500 font-medium">
-                                    עדיין אין לך חשבון?{' '}
-                                    <Link to={registerUrl} className="font-bold text-blue-600 hover:text-blue-500 underline">
-                                        צור חשבון חדש בחינם
+                        </h2>
+                        {authMode === 'PASSWORD' && (
+                            <p className="mt-1.5 text-xs text-gray-500 font-medium">
+                                עדיין אין לך חשבון?{' '}
+                                <Link to={registerUrl} className="font-bold text-blue-600 hover:text-blue-500 underline">
+                                    צור חשבון חדש בחינם
+                                </Link>
+                            </p>
+                        )}
+                    </div>
+
+                    {error && (
+                        <div className="bg-red-50 border-r-4 border-red-500 text-red-700 px-4 py-3 rounded-xl mb-5 text-xs font-bold space-y-1.5">
+                            <div>{error}</div>
+                            {isNotRegistered && (
+                                <div>
+                                    <Link to={registerUrl} className="inline-block underline font-black text-blue-700 hover:text-blue-900">
+                                        לחץ כאן להרשמה מהירה למערכת ←
                                     </Link>
-                                </p>
+                                </div>
                             )}
                         </div>
-    
-                        {error && (
-                            <div className="bg-red-50 border-r-4 border-red-500 text-red-700 px-4 py-3 rounded-xl mb-5 text-xs font-bold space-y-1.5">
-                                <div>{error}</div>
-                                {isNotRegistered && (
-                                    <div>
-                                        <Link to={registerUrl} className="inline-block underline font-black text-blue-700 hover:text-blue-900">
-                                            לחץ כאן להרשמה מהירה למערכת ←
-                                        </Link>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-    
-                        {infoMessage && (
-                            <div className="bg-emerald-50 border-r-4 border-emerald-500 text-emerald-800 px-4 py-3 rounded-xl mb-5 text-xs font-bold">
-                                {infoMessage}
-                            </div>
-                        )}
-                        {authMode === 'OTP' ? (
+                    )}
+
+                    {infoMessage && (
+                        <div className="bg-emerald-50 border-r-4 border-emerald-500 text-emerald-800 px-4 py-3 rounded-xl mb-5 text-xs font-bold">
+                            {infoMessage}
+                        </div>
+                    )}
+                    {authMode === 'OTP' ? (
                         <div className="space-y-4">
                             {!otpSent ? (
                                 <form className="space-y-4" onSubmit={handleSendOtp}>
@@ -406,35 +415,36 @@ const Login: React.FC = () => {
                         </form>
                     )}
 
-                    <div className="pt-4 mt-4 border-t border-gray-100">
-                        <button
-                            type="button"
-                            disabled={loading}
-                            onClick={async () => {
-                                try {
-                                    setError(null);
-                                    setLoading(true);
-                                    const data = await loginWithBiometricPasskey();
-                                    if (data?.token && data?.user) {
-                                        login(data.user, data.token);
-                                        navigateAfterLogin(data.user);
+                    {biometricCap.supported && (
+                        <div className="pt-4 mt-4 border-t border-gray-100">
+                            <button
+                                type="button"
+                                disabled={loading}
+                                onClick={async () => {
+                                    try {
+                                        setError(null);
+                                        setLoading(true);
+                                        const data = await loginWithBiometricPasskey();
+                                        if (data?.token && data?.user) {
+                                            login(data.user, data.token);
+                                            navigateAfterLogin(data.user);
+                                        }
+                                    } catch (err: any) {
+                                        setError(err?.message || 'לא נמצא זיהוי ביומטרי במכשיר זה.');
+                                    } finally {
+                                        setLoading(false);
                                     }
-                                } catch (err: any) {
-                                    if (err?.name !== 'NotAllowedError') {
-                                        setError(err?.response?.data?.error || 'לא נמצא זיהוי ביומטרי במכשיר זה. התחבר תחילה והפעל זיהוי ביומטרי בתפריט.');
-                                    }
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }}
-                            className="w-full py-3 px-4 text-sm font-black rounded-xl text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
-                            </svg>
-                            <span>התחבר עם טביעת אצבע / זיהוי פנים</span>
-                        </button>
-                    </div>
+                                }}
+                                className="w-full py-3 px-4 text-sm font-black rounded-xl text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+                                </svg>
+                                <span>התחבר עם {biometricCap.label}</span>
+                            </button>
+                        </div>
+                    )}
+
                 </div>
             </div>
         </div>

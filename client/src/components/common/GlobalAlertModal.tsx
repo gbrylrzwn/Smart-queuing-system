@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
-interface AlertState {
-  isOpen: boolean;
+interface ToastItem {
+  id: number;
   message: string;
   type: 'success' | 'error' | 'info';
 }
@@ -16,7 +16,6 @@ interface ConfirmState {
   resolve?: (value: boolean) => void;
 }
 
-// פונקציית עזר גלובלית לפתיחת חלון אישור מעוצב בכל מקום באפליקציה
 export const showConfirm = (options: {
   title?: string;
   message: string;
@@ -41,12 +40,7 @@ export const showConfirm = (options: {
 };
 
 export const GlobalAlertModal: React.FC = () => {
-  const [alertState, setAlertState] = useState<AlertState>({
-    isOpen: false,
-    message: '',
-    type: 'info',
-  });
-
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     isOpen: false,
     title: '',
@@ -59,39 +53,29 @@ export const GlobalAlertModal: React.FC = () => {
   useEffect(() => {
     const handleAlert = (event: Event) => {
       const text = (event as CustomEvent<string>).detail || '';
-      const isError =
-        text.includes('שגיאה') ||
-        text.includes('נכשל') ||
-        text.includes('לא ניתן') ||
-        text.includes('אין כרגע') ||
-        text.includes('חובה') ||
-        text.includes('אסור');
-      const isSuccess =
-        text.includes('בהצלחה') ||
-        text.includes('אושר') ||
-        text.includes('בוטל') ||
-        text.includes('נשמר') ||
-        text.includes('הועתק') ||
-        text.includes('עודכן');
+      if (!text.trim()) return;
 
-      setAlertState({
-        isOpen: true,
-        message: text,
-        type: isError ? 'error' : isSuccess ? 'success' : 'info',
-      });
+      const isError = /שגיאה|נכשל|לא ניתן|אין כרגע|חובה|אסור/.test(text);
+      const isSuccess = /בהצלחה|אושר|בוטל|נשמר|הועתק|עודכן/.test(text);
+      const id = Date.now() + Math.random();
+
+      setToasts((prev) => [
+        ...prev.slice(-2),
+        { id, message: text, type: isError ? 'error' : isSuccess ? 'success' : 'info' },
+      ]);
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
     };
 
     const handleConfirm = (event: Event) => {
       const detail = (event as CustomEvent<Omit<ConfirmState, 'isOpen'>>).detail;
-      setConfirmState({
-        isOpen: true,
-        ...detail,
-      });
+      setConfirmState({ isOpen: true, ...detail });
     };
 
     window.addEventListener('smartqueue-alert', handleAlert);
     window.addEventListener('smartqueue-confirm', handleConfirm);
-
     return () => {
       window.removeEventListener('smartqueue-alert', handleAlert);
       window.removeEventListener('smartqueue-confirm', handleConfirm);
@@ -99,70 +83,50 @@ export const GlobalAlertModal: React.FC = () => {
   }, []);
 
   const handleConfirmChoice = (choice: boolean) => {
-    if (confirmState.resolve) {
-      confirmState.resolve(choice);
-    }
+    if (confirmState.resolve) confirmState.resolve(choice);
     setConfirmState((prev) => ({ ...prev, isOpen: false, resolve: undefined }));
   };
 
-  const alertStyles = {
-    success: {
-      icon: '✅',
-      title: 'הפעולה הושלמה בהצלחה',
-      badgeBg: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-      btnBg: 'bg-emerald-600 hover:bg-emerald-700',
-    },
-    error: {
-      icon: '⚠️',
-      title: 'שים לב',
-      badgeBg: 'bg-red-50 text-red-600 border-red-200',
-      btnBg: 'bg-red-600 hover:bg-red-700',
-    },
-    info: {
-      icon: '✨',
-      title: 'הודעת מערכת',
-      badgeBg: 'bg-blue-50 text-blue-600 border-blue-200',
-      btnBg: 'bg-blue-600 hover:bg-blue-700',
-    },
-  }[alertState.type];
+  const styleMap = {
+    success: { icon: '✅', border: 'border-emerald-200 bg-white text-slate-800', bar: 'bg-emerald-500' },
+    error: { icon: '⚠️', border: 'border-red-200 bg-white text-slate-800', bar: 'bg-red-500' },
+    info: { icon: '✨', border: 'border-blue-200 bg-white text-slate-800', bar: 'bg-blue-600' },
+  };
 
   return (
     <>
-      {/* 1. חלונית התראה מעוצבת (מחליפה את window.alert) */}
-      {alertState.isOpen && (
+      {toasts.length > 0 && (
         <div
           dir="rtl"
           style={{ zIndex: 99999 }}
-          className="fixed inset-0 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
-          onClick={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
+          className="fixed bottom-4 right-4 flex flex-col gap-2.5 max-w-sm w-[calc(100vw-2rem)] pointer-events-none"
         >
-          <div
-            className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-7 text-center transform transition-all"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className={`w-16 h-16 mx-auto mb-4 rounded-2xl border flex items-center justify-center text-3xl shadow-sm ${alertStyles.badgeBg}`}
-            >
-              {alertStyles.icon}
-            </div>
-
-            <h3 className="text-xl font-black text-gray-900 mb-2">{alertStyles.title}</h3>
-            <p className="text-sm text-gray-600 leading-relaxed mb-6 whitespace-pre-line">
-              {alertState.message}
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
-              className={`w-full py-3.5 px-6 rounded-2xl text-white font-bold text-sm shadow-lg transition-all cursor-pointer ${alertStyles.btnBg}`}
-            >
-              הבנתי, אישור
-            </button>
-          </div>
+          {toasts.map((toast) => {
+            const st = styleMap[toast.type];
+            return (
+              <div
+                key={toast.id}
+                className={`pointer-events-auto relative overflow-hidden rounded-2xl border shadow-xl px-4 py-3.5 flex items-start gap-3 animate-toast-in ${st.border}`}
+              >
+                <span className={`absolute right-0 top-0 bottom-0 w-1.5 ${st.bar}`} />
+                <span className="text-lg leading-none mt-0.5">{st.icon}</span>
+                <p className="text-sm font-medium leading-snug flex-1 whitespace-pre-line">
+                  {toast.message}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                  className="text-slate-400 hover:text-slate-600 text-sm font-bold px-1"
+                  aria-label="סגור התראה"
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* 2. חלונית אישור דו-כפתורית מעוצבת (מחליפה את window.confirm) */}
       {confirmState.isOpen && (
         <div
           dir="rtl"
@@ -171,11 +135,11 @@ export const GlobalAlertModal: React.FC = () => {
           onClick={() => handleConfirmChoice(false)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-7 text-center transform transition-all"
+            className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-7 text-center"
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className={`w-16 h-16 mx-auto mb-4 rounded-2xl border flex items-center justify-center text-3xl shadow-sm ${
+              className={`w-14 h-14 mx-auto mb-4 rounded-2xl border flex items-center justify-center text-2xl ${
                 confirmState.isDanger
                   ? 'bg-red-50 text-red-600 border-red-200'
                   : 'bg-amber-50 text-amber-600 border-amber-200'
@@ -183,27 +147,23 @@ export const GlobalAlertModal: React.FC = () => {
             >
               {confirmState.isDanger ? '🗑️' : '❓'}
             </div>
-
-            <h3 className="text-xl font-black text-gray-900 mb-2">{confirmState.title}</h3>
+            <h3 className="text-lg font-extrabold text-gray-900 mb-2">{confirmState.title}</h3>
             <p className="text-sm text-gray-600 leading-relaxed mb-6 whitespace-pre-line">
               {confirmState.message}
             </p>
-
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => handleConfirmChoice(false)}
-                className="py-3 px-4 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm transition-all cursor-pointer"
+                className="py-2.5 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm"
               >
                 {confirmState.cancelText}
               </button>
               <button
                 type="button"
                 onClick={() => handleConfirmChoice(true)}
-                className={`py-3 px-4 rounded-2xl text-white font-bold text-sm shadow-lg transition-all cursor-pointer ${
-                  confirmState.isDanger
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-blue-600 hover:bg-blue-700'
+                className={`py-2.5 px-4 rounded-xl text-white font-bold text-sm shadow-md ${
+                  confirmState.isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
                 {confirmState.confirmText}

@@ -516,13 +516,13 @@ const Dashboard: React.FC = () => {
                                     >
                                         🔗 העתק קישור
                                     </button>
-
                                     <button
                                         type="button"
                                         onClick={() => {
                                             const smartUrl = `${window.location.origin}/business/${myBusiness.id}`;
                                             const msg = `היי! מוזמנים לקבוע תור אונליין בקליק אחד אצל ${myBusiness.name}:\n${smartUrl}`;
-                                            window.open(`https://wa.me{encodeURIComponent(msg)}`, '_blank');
+                                            const waLink = ['https:/', 'wa.me', `?text=${encodeURIComponent(msg)}`].join('/');
+                                            window.open(waLink, '_blank', 'noopener,noreferrer');
                                         }}
                                         className="px-3 py-2 rounded-xl text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all cursor-pointer"
                                     >
@@ -531,14 +531,35 @@ const Dashboard: React.FC = () => {
 
                                     <button
                                         type="button"
-                                        onClick={() => {
+                                        onClick={async () => {
                                             const smartUrl = `${window.location.origin}/business/${myBusiness.id}`;
                                             const msg = `היי! מוזמנים לקבוע תור אונליין בקליק אחד אצל ${myBusiness.name}: ${smartUrl}`;
-                                            window.open(`sms:?body=${encodeURIComponent(msg)}`, '_self');
+                                            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+                                            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+                                            if (isMobile) {
+                                                const sep = isIOS ? '&' : '?';
+                                                window.location.href = `sms:${sep}body=${encodeURIComponent(msg)}`;
+                                                return;
+                                            }
+
+                                            if (navigator.share) {
+                                                try {
+                                                    await navigator.share({ title: myBusiness.name, text: msg, url: smartUrl });
+                                                    return;
+                                                } catch { }
+                                            }
+
+                                            try {
+                                                await navigator.clipboard.writeText(msg);
+                                                alert('ההזמנה והקישור הועתקו ללוח! ניתן להדביק ולשלוח בכל אפליקציית הודעות.');
+                                            } catch {
+                                                alert('לא ניתן היה לפתוח הודעות במחשב זה.');
+                                            }
                                         }}
                                         className="px-3 py-2 rounded-xl text-xs font-black bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition-all cursor-pointer"
                                     >
-                                        💬 SMS
+                                        💬 SMS / שיתוף
                                     </button>
 
                                     <button
