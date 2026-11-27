@@ -188,8 +188,14 @@ const MyAppointments: React.FC = () => {
               const appDate = new Date(app.date).toLocaleDateString('he-IL');
               const isCanceled = app.status === 'CANCELED';
               const isHistory = isHistoryAppointment(app); 
-              const addressQuery = app.business?.address ? encodeURIComponent(app.business.address) : '';
-              const wazeUrl = `https://waze.com{addressQuery}&navigate=yes`;
+              const hasCoords = typeof app.business?.latitude === 'number' && typeof app.business?.longitude === 'number';
+              const addressQuery = encodeURIComponent(
+                [app.business?.name, app.business?.address].filter(Boolean).join(', ')
+              );
+              const wazeUrl = hasCoords
+                ? `https://waze.com{app.business.latitude},${app.business.longitude}&navigate=yes`
+                : `https://waze.com{addressQuery}&navigate=yes`;
+              
               
               return (
                 <div 

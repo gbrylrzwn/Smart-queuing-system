@@ -6,7 +6,8 @@
 html, body, #root {
   direction: rtl;
   text-align: right;
-  font-family: 'Heebo', 'Assistant', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Rubik', 'Varela Round', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
   background-color: #f8fafc;
   max-width: 100%;
   overflow-x: hidden;

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
+import { useAuth } from '../../context/AuthContext';
 
 interface ChatMessage {
   sender: 'USER' | 'ASSISTANT';
@@ -11,25 +12,55 @@ interface SmartQueueAssistantProps {
   onClose: () => void;
 }
 
-const QUICK_QUESTIONS = [
+const CLIENT_QUESTIONS = [
   'אילו עסקים וטיפולים יש?',
   'מה התורים הקרובים שלי?',
   'איך קובעים או מבטלים תור?',
   'אילו עסקים פתוחים עכשיו?',
 ];
 
+const BUSINESS_OWNER_QUESTIONS = [
+  'נסח הודעת מבצע בוואטסאפ ללקוחות',
+  'מה מצב התורים וההכנסות שלי?',
+  'איך למלא שעות פנויות ביומן?',
+  'נסח הודעת עדכון שעות פעילות לחג',
+];
+
+const ADMIN_QUESTIONS = [
+  'מה סיכום העסקים והמנויים במערכת?',
+  'אילו עסקים בתקופת ניסיון כרגע?',
+  'הצג סיכום פעילות יומי בפלטפורמה',
+];
+
 export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen, onClose }) => {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'BUSINESS_OWNER';
+  const isAdmin = user?.role === 'SUPER_ADMIN';
+
+  const quickQuestions = isAdmin
+    ? ADMIN_QUESTIONS
+    : isOwner
+    ? BUSINESS_OWNER_QUESTIONS
+    : CLIENT_QUESTIONS;
+
+  const welcomeMessage = isAdmin
+    ? 'שלום מנהל המערכת! אני העוזר החכם של SmartQueue. אפשר לשאול אותי על נתוני הפלטפורמה, עסקים רשומים, מנויים ותפעול המערכת.'
+    : isOwner
+    ? 'שלום! אני היועץ העסקי החכם שלך. אפשר לבקש ממני לנסח הודעות שיווק בוואטסאפ ללקוחות, לנתח את היומן וההכנסות שלך או לקבל רעיונות להגדלת התפוסה.'
+    : 'שלום! אני העוזר החכם של SmartQueue. אפשר לשאול אותי על עסקים, מחירים, זמינות, התורים שלך או תפעול האפליקציה.';
+
   const [question, setQuestion] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [minimized, setMinimized] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      sender: 'ASSISTANT',
-      text: 'שלום! אני העוזר החכם של SmartQueue. אפשר לשאול אותי על עסקים, מחירים, זמינות, התורים שלך או תפעול האפליקציה.',
-    },
+    { sender: 'ASSISTANT', text: welcomeMessage },
   ]);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setMessages([{ sender: 'ASSISTANT', text: welcomeMessage }]);
+  }, [user?.role]);
 
   useEffect(() => {
     if (!minimized) {
@@ -74,7 +105,7 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
 
   return (
     <div
-      className="fixed bottom-3 left-3 z-40 w-[calc(100vw-1.5rem)] max-w-[330px] pointer-events-auto"
+      className="fixed bottom-3 left-3 z-40 w-[calc(100vw-1.5rem)] max-w-[340px] pointer-events-auto"
       dir="rtl"
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
@@ -86,7 +117,9 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
               </svg>
             </div>
             <div>
-              <p className="text-xs font-black">העוזר החכם של SmartQueue</p>
+              <p className="text-xs font-black">
+                {isOwner ? 'היועץ העסקי החכם' : 'העוזר החכם של SmartQueue'}
+              </p>
               <p className="text-[10px] text-blue-100">מופעל על ידי Gemini AI</p>
             </div>
           </div>
@@ -129,7 +162,7 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
 
         {!minimized && (
           <>
-            <div className="p-2.5 h-44 overflow-y-auto space-y-2 bg-slate-50/70">
+            <div className="p-2.5 h-48 overflow-y-auto space-y-2 bg-slate-50/70">
               {messages.map((msg, idx) => (
                 <div
                   key={idx}
@@ -147,18 +180,18 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
                 </div>
               ))}
               {loading && (
-                <div className="text-[11px] text-slate-400 font-bold text-left">בודק נתונים...</div>
+                <div className="text-[11px] text-slate-400 font-bold text-left">מעבד נתונים...</div>
               )}
               <div ref={bottomRef} />
             </div>
 
             <div className="px-2 py-1.5 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto">
-              {QUICK_QUESTIONS.map((qText) => (
+              {quickQuestions.map((qText) => (
                 <button
                   key={qText}
                   type="button"
                   onClick={() => sendQuestion(qText)}
-                  className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-full text-[10px] font-bold whitespace-nowrap transition-colors cursor-pointer"
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-full text-[10px] font-bold whitespace-nowrap transition-colors cursor-pointer"
                 >
                   {qText}
                 </button>
@@ -177,7 +210,11 @@ export const SmartQueueAssistant: React.FC<SmartQueueAssistantProps> = ({ isOpen
                 maxLength={350}
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                placeholder="שאל כל שאלה על העסקים או התורים..."
+                placeholder={
+                  isOwner
+                    ? 'בקש ניסוח הודעה, ניתוח יומן או עזרה...'
+                    : 'שאל כל שאלה על העסקים או התורים...'
+                }
                 className="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500"
               />
               <button

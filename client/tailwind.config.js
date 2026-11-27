@@ -6,7 +6,8 @@ module.exports = {
     theme: {
       extend: {
         fontFamily: {
-          sans: ['Assistant', 'Segoe UI', 'Roboto', 'sans-serif'], // פונט SaaS מומלץ לעברית
+          sans: ['Rubik', 'Varela Round', 'Segoe UI', 'sans-serif'],
+
         },
         colors: {
           // צבעי פרימיום מותאמים ל-SmartQueue
