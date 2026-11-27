@@ -18,6 +18,16 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
     if (typeof window === 'undefined' || !browserSupportsWebAuthn()) {
       return { supported: false, label: '' };
     }
+
+    const ua = navigator.userAgent || '';
+    const isAppleMobile = /iPhone|iPad|iPod/i.test(ua);
+    const isAndroid = /Android/i.test(ua);
+
+    // הסתרה מוחלטת במחשבים נייחים וניידים — הצגה רק במכשירי מובייל תומכים
+    if (!isAppleMobile && !isAndroid) {
+      return { supported: false, label: '' };
+    }
+
     if (
       typeof PublicKeyCredential === 'undefined' ||
       !PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable
@@ -30,33 +40,24 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
       return { supported: false, label: '' };
     }
 
-    const ua = navigator.userAgent || '';
-    const isApple = /iPhone|iPad|iPod|Macintosh/i.test(ua);
-    const isAndroid = /Android/i.test(ua);
-
-    if (isApple) {
+    if (isAppleMobile) {
       return {
         supported: true,
         mode: 'FACE_OR_TOUCH_APPLE',
         label: 'זיהוי פנים או טביעת אצבע',
       };
     }
-    if (isAndroid) {
-      return {
-        supported: true,
-        mode: 'FINGERPRINT_ANDROID',
-        label: 'טביעת אצבע',
-      };
-    }
+
     return {
       supported: true,
-      mode: 'PLATFORM_BIOMETRIC',
-      label: 'זיהוי ביומטרי של המכשיר',
+      mode: 'FINGERPRINT_ANDROID',
+      label: 'טביעת אצבע',
     };
   } catch {
     return { supported: false, label: '' };
   }
 }
+
 
 export async function registerBiometricPasskey(): Promise<string> {
   const cap = await getBiometricCapability();
