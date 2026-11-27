@@ -1,10 +1,45 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import prisma from '../Config/db';
+
+const VAT_RATE = 0.18;
 
 const getOwnerBusiness = async (req: Request) => {
   const userId = Number((req as any).user?.userId || (req as any).user?.id);
   if (!userId || isNaN(userId)) return null;
   return prisma.business.findFirst({ where: { ownerId: userId } });
+};
+
+const computeDigitalSeal = (payload: {
+  invoiceNumber: string;
+  businessId: number;
+  amount: number;
+  clientName: string;
+  issuedAt: Date;
+}): string => {
+  const secret = process.env.JWT_SECRET || 'smartqueue-invoice-integrity-key';
+  const raw = `${payload.invoiceNumber}|${payload.businessId}|${payload.amount.toFixed(2)}|${payload.clientName}|${payload.issuedAt.toISOString()}`;
+  return crypto.createHmac('sha256', secret).update(raw).digest('hex').slice(0, 16).toUpperCase();
+};
+
+const enrichInvoiceSecurity = (inv: any) => {
+  const total = Number(inv.amount || 0);
+  const beforeVat = Number((total / (1 + VAT_RATE)).toFixed(2));
+  const vatAmount = Number((total - beforeVat).toFixed(2));
+  const digitalSeal = computeDigitalSeal({
+    invoiceNumber: inv.invoiceNumber,
+    businessId: inv.businessId,
+    amount: total,
+    clientName: inv.clientName,
+    issuedAt: new Date(inv.issuedAt),
+  });
+  return {
+    ...inv,
+    beforeVat,
+    vatAmount,
+    vatRatePercent: 18,
+    digitalSeal,
+  };
 };
 
 export class InvoiceController {
@@ -35,15 +70,23 @@ export class InvoiceController {
         }),
       ]);
 
+      const invoicedAppIds = new Set(
+        invoices.map((i) => i.appointmentId).filter((id): id is number => id !== null)
+      );
+
       res.status(200).json({
         business: { id: business.id, name: business.name, address: business.address },
-        invoices,
-        paidAppointments,
+        invoices: invoices.map(enrichInvoiceSecurity),
+        paidAppointments: paidAppointments.map((app) => ({
+          ...app,
+          hasInvoice: invoicedAppIds.has(app.id),
+        })),
       });
     } catch (error) {
       next(error);
     }
   }
+
   public static async createInvoice(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const business = await getOwnerBusiness(req);
@@ -62,46 +105,78 @@ export class InvoiceController {
       const notes = req.body.notes ? String(req.body.notes).trim() : null;
       const appointmentId = req.body.appointmentId ? Number(req.body.appointmentId) : null;
 
-      if (!clientName || !serviceName || isNaN(amount) || amount <= 0) {
+      if (!clientName || !serviceName || isNaN(amount) || amount <= 0 || amount > 500000) {
         res.status(400).json({ error: 'יש להזין שם לקוח, פירוט שירות וסכום חיובי תקין.' });
         return;
       }
 
-      if (appointmentId) {
-        const ownedApp = await prisma.appointment.findFirst({
-          where: { id: appointmentId, businessId: business.id },
-        });
-        if (!ownedApp) {
-          res.status(403).json({ error: 'אין הרשאה להפיק חשבונית עבור תור זה.' });
-          return;
+      const created = await prisma.$transaction(async (tx) => {
+        if (appointmentId) {
+          const ownedApp = await tx.appointment.findFirst({
+            where: { id: appointmentId, businessId: business.id },
+          });
+          if (!ownedApp) {
+            throw new Error('FORBIDDEN_APPOINTMENT');
+          }
+
+          const duplicate = await tx.invoice.findFirst({
+            where: { businessId: business.id, appointmentId },
+          });
+          if (duplicate) {
+            throw new Error(`DUPLICATE_INVOICE:${duplicate.invoiceNumber}`);
+          }
         }
-      }
 
-      const existingCount = await prisma.invoice.count({ where: { businessId: business.id } });
-      const year = new Date().getFullYear();
-      const invoiceNumber = `INV-${year}-${String(existingCount + 1001)}`;
+        const lastInvoice = await tx.invoice.findFirst({
+          where: { businessId: business.id },
+          orderBy: { id: 'desc' },
+          select: { invoiceNumber: true },
+        });
 
-      const created = await prisma.invoice.create({
-        data: {
-          invoiceNumber,
-          businessId: business.id,
-          appointmentId,
-          clientName,
-          clientPhone,
-          clientEmail,
-          clientTaxId,
-          serviceName,
-          amount,
-          paymentMethod,
-          notes,
-        },
+        const year = new Date().getFullYear();
+        let nextSeq = 1001;
+        if (lastInvoice?.invoiceNumber) {
+          const parts = lastInvoice.invoiceNumber.split('-');
+          const parsed = Number(parts[parts.length - 1]);
+          if (!isNaN(parsed) && parsed >= 1001) {
+            nextSeq = parsed + 1;
+          }
+        }
+        const invoiceNumber = `INV-${year}-${nextSeq}`;
+
+        return tx.invoice.create({
+          data: {
+            invoiceNumber,
+            businessId: business.id,
+            appointmentId,
+            clientName,
+            clientPhone,
+            clientEmail,
+            clientTaxId,
+            serviceName,
+            amount: Number(amount.toFixed(2)),
+            paymentMethod,
+            notes,
+          },
+        });
       });
+
+      const securedInvoice = enrichInvoiceSecurity(created);
 
       res.status(201).json({
-        message: `חשבונית / קבלה מספר ${invoiceNumber} הופקה בהצלחה!`,
-        invoice: created,
+        message: `אישור תשלום / מסמך עסקה מספר ${securedInvoice.invoiceNumber} הופק ונחתם בהצלחה!`,
+        invoice: securedInvoice,
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message === 'FORBIDDEN_APPOINTMENT') {
+        res.status(403).json({ error: 'אין הרשאה להפיק מסמך עבור תור זה.' });
+        return;
+      }
+      if (typeof error?.message === 'string' && error.message.startsWith('DUPLICATE_INVOICE:')) {
+        const existingNum = error.message.split(':')[1];
+        res.status(409).json({ error: `כבר הופק מסמך (${existingNum}) עבור תור זה.` });
+        return;
+      }
       next(error);
     }
   }

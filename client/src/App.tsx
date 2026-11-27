@@ -65,6 +65,11 @@ const App: React.FC = () => {
             <a href="/privacy" className="text-slate-600 hover:text-blue-600 transition-colors">
               מדיניות פרטיות ותנאי שימוש
             </a>
+            <a href="/status" className="text-emerald-600 hover:text-emerald-700 transition-colors flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              סטטוס מערכת חי
+            </a>
+
           </div>
         </div>
       </footer>

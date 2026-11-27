@@ -24,6 +24,7 @@ import ProtectedRoute from '../components/auth/ProtectedRoute';
 import BusinessInvoices from '../pages/BusinessInvoices';
 import PrivacyPolicy from '../pages/PrivacyPolicy';
 import SystemGuide from '../pages/SystemGuide';
+import StatusPage from '../pages/StatusPage';
 
 const MaintenanceBanner: React.FC = () => (
   <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center" dir="rtl">
@@ -113,6 +114,7 @@ const AppRouter: React.FC = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/about" element={<SystemGuide />} />
+        <Route path="/status" element={<StatusPage />} />
 
 
         <Route path="/confirm-appointment/:token" element={<QuickConfirmAppointment />} />

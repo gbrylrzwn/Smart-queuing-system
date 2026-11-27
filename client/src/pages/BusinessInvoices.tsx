@@ -16,6 +16,10 @@ interface InvoiceItem {
   paymentMethod: string;
   notes?: string | null;
   issuedAt: string;
+  beforeVat?: number;
+  vatAmount?: number;
+  digitalSeal?: string;
+
 }
 
 const BusinessInvoices: React.FC = () => {
@@ -251,6 +255,37 @@ const BusinessInvoices: React.FC = () => {
                 placeholder="חיפוש לפי מספר מסמך, לקוח או שירות..."
                 className="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs w-full sm:w-64"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  const headers = ['מספר מסמך', 'תאריך', 'שם לקוח', 'טלפון', 'ח.פ/ת.ז', 'שירות', 'לפני מע"מ', 'מע"מ (18%)', 'סה"כ (₪)', 'אמצעי תשלום', 'חותמת אימות'];
+                  const rows = filteredInvoices.map((inv) => [
+                    inv.invoiceNumber,
+                    new Date(inv.issuedAt).toLocaleDateString('he-IL'),
+                    inv.clientName,
+                    inv.clientPhone || '',
+                    inv.clientTaxId || '',
+                    inv.serviceName,
+                    inv.beforeVat ?? inv.amount,
+                    inv.vatAmount ?? 0,
+                    inv.amount,
+                    inv.paymentMethod,
+                    inv.digitalSeal || '',
+                  ]);
+                  const csv = '\uFEFF' + [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `invoices_${new Date().toISOString().slice(0, 10)}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl cursor-pointer shrink-0"
+              >
+                📊 ייצוא לאקסל
+              </button>
+
             </div>
 
             {loading ? (
@@ -326,6 +361,28 @@ const BusinessInvoices: React.FC = () => {
                 <span className="font-bold text-slate-800">{previewInvoice.serviceName}</span>
                 <span className="text-base font-black text-slate-900">₪{previewInvoice.amount}</span>
               </div>
+            </div>
+            <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3.5 space-y-1.5 text-[11px]">
+              <div className="flex justify-between text-slate-600">
+                <span>סכום לפני מע"מ:</span>
+                <span className="font-bold">₪{(previewInvoice.beforeVat ?? Number(previewInvoice.amount)).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>מע"מ (18%):</span>
+                <span className="font-bold">₪{(previewInvoice.vatAmount ?? 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-slate-900 font-black text-xs pt-1 border-t border-indigo-100">
+                <span>סה"כ שולם כולל מע"מ:</span>
+                <span>₪{Number(previewInvoice.amount).toFixed(2)}</span>
+              </div>
+              {previewInvoice.digitalSeal && (
+                <p className="text-[10px] font-mono text-indigo-800 pt-1">
+                  🔒 חותמת שלמות קריפטוגרפית (SHA-256): {previewInvoice.digitalSeal}
+                </p>
+              )}
+              <p className="text-[10px] text-slate-500 pt-1 leading-relaxed">
+                * אישור תשלום ומסמך פירוט עסקה דיגיטלי חתום במערכת SmartQueue. להפקת חשבונית מס מוכרת לרשות המסים יש לייצא נתונים לרואה החשבון או לחבר ספק חשבוניות מוסמך.
+              </p>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
