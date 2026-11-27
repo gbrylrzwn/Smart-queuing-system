@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "RESTful API server for an appointment scheduling system, managing user authentication, calendar slots, and booking logic.",
   "dependencies": {
+    "@fontsource/heebo": "^5.3.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@simplewebauthn/server": "^14.1.0",
