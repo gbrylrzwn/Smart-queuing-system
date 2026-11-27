@@ -530,37 +530,32 @@ const Dashboard: React.FC = () => {
                                     </button>
 
                                     <button
-                                        type="button"
-                                        onClick={async () => {
-                                            const smartUrl = `${window.location.origin}/business/${myBusiness.id}`;
-                                            const msg = `היי! מוזמנים לקבוע תור אונליין בקליק אחד אצל ${myBusiness.name}: ${smartUrl}`;
-                                            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
-                                            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    type="button"
+    onClick={async () => {
+        const smartUrl = `${window.location.origin}/business/${myBusiness.id}`;
+        const msg = `היי! מוזמנים לקבוע תור אונליין בקליק אחד אצל ${myBusiness.name}: ${smartUrl}`;
+        const ua = navigator.userAgent || '';
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+        const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
-                                            if (isMobile) {
-                                                const sep = isIOS ? '&' : '?';
-                                                window.location.href = `sms:${sep}body=${encodeURIComponent(msg)}`;
-                                                return;
-                                            }
+        if (isMobile) {
+            const sep = isIOS ? '&' : '?';
+            window.location.href = `sms:${sep}body=${encodeURIComponent(msg)}`;
+            return;
+        }
 
-                                            if (navigator.share) {
-                                                try {
-                                                    await navigator.share({ title: myBusiness.name, text: msg, url: smartUrl });
-                                                    return;
-                                                } catch { }
-                                            }
+        try {
+            await navigator.clipboard.writeText(msg);
+            alert('הקישור וההזמנה הועתקו ללוח בהצלחה! כעת ניתן להדביק ולשלוח בכל מקום.');
+        } catch {
+            alert(`העתק את הקישור לשיתוף:\n${smartUrl}`);
+        }
+    }}
+    className="px-3 py-2 rounded-xl text-xs font-black bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition-all cursor-pointer"
+>
+    💬 SMS / העתק הזמנה
+</button>
 
-                                            try {
-                                                await navigator.clipboard.writeText(msg);
-                                                alert('ההזמנה והקישור הועתקו ללוח! ניתן להדביק ולשלוח בכל אפליקציית הודעות.');
-                                            } catch {
-                                                alert('לא ניתן היה לפתוח הודעות במחשב זה.');
-                                            }
-                                        }}
-                                        className="px-3 py-2 rounded-xl text-xs font-black bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition-all cursor-pointer"
-                                    >
-                                        💬 SMS / שיתוף
-                                    </button>
 
                                     <button
                                         type="button"
